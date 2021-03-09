@@ -107,6 +107,7 @@ class Node:
         except:
             print("Node %d: rejecting connection %s:%d" %
                   (self.ident, addr[0], addr[1]))
+            conn.close()
 
     def recv_tracker(self):
         assert(self.is_valid())
