@@ -15,8 +15,10 @@ class Node:
         self.lock = Lock()
 
     def __unlock(self):
-        if self.lock.locked():
+        try:
             self.lock.release()
+        except RuntimeError:
+            pass
 
     def __lock(self):
         self.lock.acquire()
