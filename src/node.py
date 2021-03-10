@@ -129,7 +129,10 @@ class Node:
 
     def recv_tracker(self):
         msg = message.recv(self.tracker_socket)
+
         if not msg:
+            print("Node %d: connection with tracker broken" % self.ident)
+            self.disconnect()
             return
 
         # a new peer connected, and they will soon attempt to establish
