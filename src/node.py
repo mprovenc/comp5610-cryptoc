@@ -100,32 +100,37 @@ class Node:
         return True
 
     def accept(self):
-        conn, addr = self.socket.accept()
-        print("Node %d: opened connection %s:%d" %
-              (self.ident, addr[0], addr[1]))
-
-        # the peer must identify themselves
-        msg = message.recv(conn)
-        if not msg or msg.kind != message.Kind.PEER_IDENT:
-            print("Node %d: rejecting connection %s:%d" %
+        try:
+            conn, addr = self.socket.accept()
+            print("Node %d: opened connection %s:%d" %
                   (self.ident, addr[0], addr[1]))
-            conn.close()
-            return
 
-        ident = msg.msg["ident"]
+            # the peer must identify themselves
+            msg = message.recv(conn)
+            if not msg or msg.kind != message.Kind.PEER_IDENT:
+                print("Node %d: rejecting connection %s:%d" %
+                      (self.ident, addr[0], addr[1]))
+                conn.close()
+                return
 
-        # tell them we've accepted them
-        message.PeerAccept().send(conn)
-        print("Node %d: accepting connection from peer %d on %s:%d" %
-              (self.ident, ident, addr[0], addr[1]))
+            ident = msg.msg["ident"]
 
-        self.__lock()
-        # register the node and spawn a thread to listen for messages
-        self.peer_sockets[ident] = conn
-        thread = Thread(target=self.__recv_peer, args=(ident,),
-                        daemon=True)
-        thread.start()
-        self.__unlock()
+            # tell them we've accepted them
+            message.PeerAccept().send(conn)
+            print("Node %d: accepting connection from peer %d on %s:%d" %
+                  (self.ident, ident, addr[0], addr[1]))
+
+            self.__lock()
+            # register the node and spawn a thread to listen for messages
+            self.peer_sockets[ident] = conn
+            thread = Thread(target=self.__recv_peer, args=(ident,),
+                            daemon=True)
+            thread.start()
+            self.__unlock()
+
+            return True
+        except:
+            return False
 
     def recv_tracker(self):
         msg = message.recv(self.tracker_socket)
@@ -133,7 +138,7 @@ class Node:
         if not msg:
             print("Node %d: connection with tracker broken" % self.ident)
             self.disconnect()
-            return
+            return False
 
         # a new peer connected, and they will soon attempt to establish
         # a direct connection with us, so register them so that we can
@@ -149,6 +154,8 @@ class Node:
             self.__lock()
             self.peers[ident] = peer.Peer(host, ident, port)
             self.__unlock()
+
+        return True
 
     def disconnect(self):
         if self.ident:

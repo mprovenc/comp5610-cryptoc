@@ -20,15 +20,15 @@ def sig_handler(signum, frame):
 # accept new connections from peers
 def accepter():
     global n
-    while True:
-        n.accept()
+    while n.accept():
+        pass
 
 
 # receive new messages from the tracker
 def tracker_receiver():
     global n
-    while True:
-        n.recv_tracker()
+    while n.recv_tracker():
+        pass
 
 
 def main():
