@@ -1,5 +1,5 @@
 import socket
-from threading import Lock
+from threading import Thread, Lock
 from . import message, peer
 
 
@@ -7,7 +7,6 @@ class Tracker:
     def __init__(self, port, hostname="localhost"):
         self.addr = (hostname, port)
         self.nodes = {}
-        self.node_ports = {}
         self.node_sockets = {}
         self.ident_count = 0
         self.lock = Lock()
@@ -67,9 +66,13 @@ class Tracker:
 
             # register the node
             self.nodes[ident] = peer.Peer(addr[0], ident, port)
-            self.node_ports[ident] = addr[1]
             self.node_sockets[ident] = conn
             self.ident_count += 1
+
+            # start a thread to listen for node messages
+            thread = Thread(target=self.__recv_node, args=(ident,),
+                            daemon=True)
+            thread.start()
         except AssertionError:
             print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
             conn.close()
@@ -83,3 +86,23 @@ class Tracker:
             conn.close()
 
         self.socket.close()
+        self.nodes = {}
+        self.node_sockets = {}
+
+    def __recv_node(self, ident):
+        print("Tracker: monitoring messages from node %d" % ident)
+        while True:
+            conn = self.node_sockets[ident]
+            msg = message.recv(conn)
+            if not msg:
+                continue
+
+            if msg.kind == message.Kind.NODE_DISCONNECT:
+                print("Tracker: node %d is disconnecting" % ident)
+
+                self.__lock()
+                conn.close()
+                self.nodes.pop(ident)
+                self.node_sockets.pop(ident)
+                self.__unlock()
+                break

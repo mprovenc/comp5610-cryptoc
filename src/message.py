@@ -31,6 +31,9 @@ class Kind(IntEnum):
     # node has received its peers from the tracker
     NODE_PEERS = 7
 
+    # node is disconnecting
+    NODE_DISCONNECT = 8
+
 
 # a JSON-serializable message
 class Message:
@@ -45,6 +48,7 @@ class Message:
         data = bytearray(self.to_string().encode())
         data.extend(b'\xFF')
         sock.send(data)
+
 
 class TrackerIdent(Message):
     def __init__(self, ident):
@@ -91,6 +95,11 @@ class NodePeers(Message):
         super().__init__(Kind.NODE_PEERS)
 
 
+class NodeDisconnect(Message):
+    def __init__(self):
+        super().__init__(Kind.NODE_DISCONNECT)
+
+
 def of_string(s):
     try:
         j = json.loads(s)
@@ -111,6 +120,8 @@ def of_string(s):
             return TrackerNewPeer(j["peer"])
         elif k == Kind.NODE_PEERS:
             return NodePeers()
+        elif k == Kind.NODE_DISCONNECT:
+            return NodeDisconnect()
         else:
             return None
     except:

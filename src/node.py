@@ -1,5 +1,5 @@
 import socket
-from threading import Lock
+from threading import Thread, Lock
 from . import message, peer
 
 
@@ -32,7 +32,7 @@ class Node:
 
         # receive our identifier from the tracker
         msg = message.recv(self.tracker_socket)
-        if msg is None or msg.kind != message.Kind.TRACKER_IDENT:
+        if not msg or msg.kind != message.Kind.TRACKER_IDENT:
             print("Node: failed to receive TRACKER_IDENT")
             self.disconnect()
             return False
@@ -44,7 +44,7 @@ class Node:
 
         # receive our peers
         msg = message.recv(self.tracker_socket)
-        if msg is None or msg.kind != message.Kind.TRACKER_PEERS:
+        if not msg or msg.kind != message.Kind.TRACKER_PEERS:
             print("Node %d: failed to receive TRACKER_PEERS" % self.ident)
             self.disconnect()
             return False
@@ -60,7 +60,7 @@ class Node:
 
         # wait to start listening
         msg = message.recv(self.tracker_socket)
-        if msg is None or msg.kind != message.Kind.TRACKER_ACCEPT:
+        if not msg or msg.kind != message.Kind.TRACKER_ACCEPT:
             print("Node %d: failed to receive TRACKER_ACCEPT" % self.ident)
             self.disconnect()
             return False
@@ -88,7 +88,7 @@ class Node:
 
             # wait for acceptance
             reply = message.recv(conn)
-            if reply is not None and reply.kind == message.Kind.PEER_ACCEPT:
+            if reply and reply.kind == message.Kind.PEER_ACCEPT:
                 # register the connection
                 print("Node %d: accepted by peer %d on %s:%d" %
                       (self.ident, p.ident, p.host, p.port))
@@ -106,7 +106,7 @@ class Node:
 
         # the peer must identify themselves
         msg = message.recv(conn)
-        if msg is None or msg.kind != message.Kind.PEER_IDENT:
+        if not msg or msg.kind != message.Kind.PEER_IDENT:
             print("Node %d: rejecting connection %s:%d" %
                   (self.ident, addr[0], addr[1]))
             conn.close()
@@ -121,11 +121,14 @@ class Node:
 
         self.__lock()
         self.peer_sockets[ident] = conn
+        thread = Thread(target=self.__recv_peer, args=(ident,),
+                        daemon=True)
+        thread.start()
         self.__unlock()
 
     def recv_tracker(self):
         msg = message.recv(self.tracker_socket)
-        if msg is None:
+        if not msg:
             return
 
         # a new peer connected, and they will soon attempt to establish
@@ -144,12 +147,33 @@ class Node:
             self.__unlock()
 
     def disconnect(self):
-        if self.ident is not None:
+        if self.ident:
             print("Node %d: disconnecting" % self.ident)
         else:
             print("Node: disconnecting")
 
-        self.tracker_socket.close()
-
+        msg = message.NodeDisconnect()
+        msg.send(self.tracker_socket)
         for conn in self.peer_sockets.values():
-            conn.close()
+            msg.send(conn)
+
+    def __recv_peer(self, ident):
+        print("Node %d: monitoring messages from peer %d" %
+              (self.ident, ident))
+
+        while True:
+            conn = self.peer_sockets[ident]
+            msg = message.recv(conn)
+            if not msg:
+                continue
+
+            if msg.kind == message.Kind.NODE_DISCONNECT:
+                print("Node %d: peer %d is disconnecting" %
+                      (self.ident, ident))
+
+                self.__lock()
+                conn.close()
+                self.peers.pop(ident)
+                self.peer_sockets.pop(ident)
+                self.__unlock()
+                break
