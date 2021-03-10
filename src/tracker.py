@@ -91,6 +91,7 @@ class Tracker:
 
     def __recv_node(self, ident):
         print("Tracker: monitoring messages from node %d" % ident)
+
         while True:
             conn = self.node_sockets[ident]
             msg = message.recv(conn)
