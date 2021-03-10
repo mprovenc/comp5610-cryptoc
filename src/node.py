@@ -120,6 +120,7 @@ class Node:
               (self.ident, ident, addr[0], addr[1]))
 
         self.__lock()
+        # register the node and spawn a thread to listen for messages
         self.peer_sockets[ident] = conn
         thread = Thread(target=self.__recv_peer, args=(ident,),
                         daemon=True)
@@ -165,15 +166,22 @@ class Node:
             conn = self.peer_sockets[ident]
             msg = message.recv(conn)
             if not msg:
-                continue
+                print("Node %d: connection with peer %d broken" %
+                      (self.ident, ident))
+
+                self.__remove_peer(conn, ident)
+                break
 
             if msg.kind == message.Kind.NODE_DISCONNECT:
                 print("Node %d: peer %d is disconnecting" %
                       (self.ident, ident))
 
-                self.__lock()
-                conn.close()
-                self.peers.pop(ident)
-                self.peer_sockets.pop(ident)
-                self.__unlock()
+                self.__remove_peer(conn, ident)
                 break
+
+    def __remove_peer(self, conn, ident):
+        self.__lock()
+        conn.close()
+        self.peers.pop(ident)
+        self.peer_sockets.pop(ident)
+        self.__unlock()
