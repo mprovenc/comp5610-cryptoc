@@ -100,7 +100,7 @@ class Tracker:
 
             if msg.kind == message.Kind.NODE_DISCONNECT:
                 print("Tracker: node %d is disconnecting" % ident)
-                self.remove_node(conn, ident)
+                self.__remove_node(conn, ident)
                 break
 
     def __remove_node(self, conn, ident):
