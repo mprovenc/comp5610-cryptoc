@@ -2,7 +2,7 @@
 
 import signal
 import sys
-import threading
+from threading import Thread
 from src import tracker, util
 
 # global tracker object
@@ -40,7 +40,7 @@ def main():
         sys.exit(1)
 
     def new_thread(f):
-        thread = threading.Thread(target=f, daemon=True)
+        thread = Thread(target=f, daemon=True)
         thread.start()
         return thread
 

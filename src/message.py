@@ -28,6 +28,9 @@ class Kind(IntEnum):
     # tracker is informing existing nodes of a new peer
     TRACKER_NEW_PEER = 6
 
+    # node has received its peers from the tracker
+    NODE_PEERS = 7
+
 
 # a JSON-serializable message
 class Message:
@@ -38,6 +41,10 @@ class Message:
     def to_string(self):
         return json.dumps(self.msg)
 
+    def send(self, sock):
+        data = bytearray(self.to_string().encode())
+        data.extend(b'\xFF')
+        sock.send(data)
 
 class TrackerIdent(Message):
     def __init__(self, ident):
@@ -79,6 +86,11 @@ class TrackerNewPeer(Message):
         self.msg["peer"] = peer
 
 
+class NodePeers(Message):
+    def __init__(self):
+        super().__init__(Kind.NODE_PEERS)
+
+
 def of_string(s):
     try:
         j = json.loads(s)
@@ -97,7 +109,34 @@ def of_string(s):
             return TrackerAccept()
         elif k == Kind.TRACKER_NEW_PEER:
             return TrackerNewPeer(j["peer"])
+        elif k == Kind.NODE_PEERS:
+            return NodePeers()
         else:
             return None
     except:
         return None
+
+
+def recv(sock):
+    data = bytearray()
+
+    while True:
+        packet = sock.recv(4096)
+        n = len(packet)
+        if n == 0:
+            break
+        n1 = n - 1
+        if packet[n1] == 255:
+            data.extend(packet[:n1])
+            break
+        else:
+            data.extend(packet)
+
+    try:
+        return of_string(data.decode())
+    except UnicodeDecodeError:
+        # this may happen if more than one message
+        # was available on the socket, so perhaps
+        # we may need to handle the case where
+        # this function may return a list of messages
+        None

@@ -2,7 +2,7 @@
 
 import signal
 import sys
-import threading
+from threading import Thread
 from src import node, util
 
 # global node object
@@ -60,7 +60,7 @@ def main():
         fail()
 
     def new_thread(f):
-        thread = threading.Thread(target=f, daemon=True)
+        thread = Thread(target=f, daemon=True)
         thread.start()
         return thread
 

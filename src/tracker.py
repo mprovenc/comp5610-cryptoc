@@ -1,5 +1,6 @@
 import socket
-from . import message, peer, util
+from threading import Lock
+from . import message, peer
 
 
 class Tracker:
@@ -9,6 +10,14 @@ class Tracker:
         self.node_ports = {}
         self.node_sockets = {}
         self.ident_count = 0
+        self.lock = Lock()
+
+    def __unlock(self):
+        if self.lock.locked():
+            self.lock.release()
+
+    def __lock(self):
+        self.lock.acquire()
 
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -21,15 +30,16 @@ class Tracker:
         conn, addr = self.socket.accept()
         print("Tracker: opened connection %s:%d" % (addr[0], addr[1]))
 
+        self.__lock()
+
         try:
             # assign the next available identifier
             ident = self.ident_count
-            msg = message.TrackerIdent(ident)
-            util.sendall(conn, msg.to_string())
+            message.TrackerIdent(ident).send(conn)
 
             # node must tell us what port they intend to listen on
-            reply = message.of_string(util.recvall(conn))
-            assert(reply.kind == message.Kind.NODE_PORT)
+            reply = message.recv(conn)
+            assert(reply and reply.kind == message.Kind.NODE_PORT)
             port = reply.msg["port"]
             print("Tracker: connection %s:%d will listen on port %d" %
                   (addr[0], addr[1], port))
@@ -38,30 +48,36 @@ class Tracker:
             peers = []
             for p in self.nodes.values():
                 peers.append(p.serialize())
-            msg = message.TrackerPeers(peers)
-            util.sendall(conn, msg.to_string())
+            message.TrackerPeers(peers).send(conn)
+
+            # wait for the node to inform us that it received the peers
+            reply = message.recv(conn)
+            assert(reply and reply.kind == message.Kind.NODE_PEERS)
+            print("Tracker: node %d accepted peers" % ident)
 
             # inform existing nodes of their new peer
             new_peer = peer.Peer(addr[0], ident, port).serialize()
             for nconn in self.node_sockets.values():
-                msg = message.TrackerNewPeer(new_peer)
-                util.sendall(nconn, msg.to_string())
+                message.TrackerNewPeer(new_peer).send(nconn)
 
             # inform the node that it has been accepted
-            msg = message.TrackerAccept()
-            util.sendall(conn, msg.to_string())
+            message.TrackerAccept().send(conn)
 
             # register the node
             self.nodes[ident] = peer.Peer(addr[0], ident, port)
             self.node_ports[ident] = addr[1]
             self.node_sockets[ident] = conn
             self.ident_count += 1
-        except:
+        except AssertionError:
             print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
             conn.close()
 
+        self.__unlock()
+
     def stop(self):
         print("Tracker: shutting down")
+
         for conn in self.node_sockets.values():
             conn.close()
+
         self.socket.close()

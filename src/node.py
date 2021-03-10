@@ -1,5 +1,6 @@
 import socket
-from . import message, peer, util
+from threading import Lock
+from . import message, peer
 
 
 class Node:
@@ -11,6 +12,14 @@ class Node:
         self.peer_sockets = {}
         self.ident = None
         self.socket = None
+        self.lock = Lock()
+
+    def __unlock(self):
+        if self.lock.locked():
+            self.lock.release()
+
+    def __lock(self):
+        self.lock.acquire()
 
     def connect(self):
         # connect to the tracker
@@ -20,7 +29,7 @@ class Node:
               (self.tracker_addr[0], self.tracker_addr[1]))
 
         # receive our identifier from the tracker
-        msg = message.of_string(util.recvall(self.tracker_socket))
+        msg = message.recv(self.tracker_socket)
         if msg is None or msg.kind != message.Kind.TRACKER_IDENT:
             print("Node: failed to receive TRACKER_IDENT")
             self.disconnect()
@@ -29,13 +38,12 @@ class Node:
         print("Node: received ident %d" % self.ident)
 
         # reply with the port we want to listen on
-        reply = message.NodePort(self.addr[1])
-        util.sendall(self.tracker_socket, reply.to_string())
+        message.NodePort(self.addr[1]).send(self.tracker_socket)
 
         # receive our peers
-        msg = message.of_string(util.recvall(self.tracker_socket))
+        msg = message.recv(self.tracker_socket)
         if msg is None or msg.kind != message.Kind.TRACKER_PEERS:
-            print("Node %d: failed to receive TRACKER_PEERS %s" % self.ident)
+            print("Node %d: failed to receive TRACKER_PEERS" % self.ident)
             self.disconnect()
             return False
 
@@ -45,8 +53,11 @@ class Node:
             ident = p["ident"]
             self.peers[ident] = peer.Peer(p["host"], ident, p["port"])
 
+        # tell the tracker we received the peers
+        message.NodePeers().send(self.tracker_socket)
+
         # wait to start listening
-        msg = message.of_string(util.recvall(self.tracker_socket))
+        msg = message.recv(self.tracker_socket)
         if msg is None or msg.kind != message.Kind.TRACKER_ACCEPT:
             print("Node %d: failed to receive TRACKER_ACCEPT" % self.ident)
             self.disconnect()
@@ -71,12 +82,12 @@ class Node:
                   (self.ident, p.ident, p.host, p.port))
 
             # tell them our identifier
-            msg = message.PeerIdent(self.ident)
-            util.sendall(conn, msg.to_string())
+            message.PeerIdent(self.ident).send(conn)
 
             # wait for acceptance
-            reply = message.of_string(util.recvall(conn))
+            reply = message.recv(conn)
             if reply is not None and reply.kind == message.Kind.PEER_ACCEPT:
+                # register the connection
                 print("Node %d: accepted by peer %d on %s:%d" %
                       (self.ident, p.ident, p.host, p.port))
                 self.peer_sockets[p.ident] = conn
@@ -87,47 +98,56 @@ class Node:
         return True
 
     def accept(self):
-        assert(self.is_valid())
         conn, addr = self.socket.accept()
         print("Node %d: opened connection %s:%d" %
               (self.ident, addr[0], addr[1]))
 
-        try:
-            # the peer must identify themselves
-            msg = message.of_string(util.recvall(conn))
-            assert(msg.kind == message.Kind.PEER_IDENT)
-            ident = msg.msg["ident"]
-
-            # tell them we've accepted them
-            reply = message.PeerAccept()
-            util.sendall(conn, reply.to_string())
-            print("Node %d: accepting connection from peer %d on %s:%d" %
-                  (self.ident, ident, addr[0], addr[1]))
-            self.peer_sockets[ident] = conn
-        except:
+        # the peer must identify themselves
+        msg = message.recv(conn)
+        if msg is None or msg.kind != message.Kind.PEER_IDENT:
             print("Node %d: rejecting connection %s:%d" %
                   (self.ident, addr[0], addr[1]))
             conn.close()
+            return
+
+        ident = msg.msg["ident"]
+
+        # tell them we've accepted them
+        message.PeerAccept().send(conn)
+        print("Node %d: accepting connection from peer %d on %s:%d" %
+              (self.ident, ident, addr[0], addr[1]))
+
+        self.__lock()
+        self.peer_sockets[ident] = conn
+        self.__unlock()
 
     def recv_tracker(self):
-        assert(self.is_valid())
+        msg = message.recv(self.tracker_socket)
+        if msg is None:
+            return
 
-        try:
-            msg = message.of_string(util.recvall(self.tracker_socket))
+        # a new peer connected, and they will soon attempt to establish
+        # a direct connection with us, so register them so that we can
+        # recognize them in such an event.
+        if msg.kind == message.Kind.TRACKER_NEW_PEER:
+            p = msg.msg["peer"]
+            ident = p["ident"]
+            host = p["host"]
+            port = p["port"]
+            print("Node %d: received new peer %d on %s:%d" %
+                  (self.ident, ident, host, port))
 
-            # a new peer connected, and they will soon attempt to establish
-            # a direct connection with us, so register them so that we can
-            # recognize them in such an event.
-            if msg.kind == message.Kind.TRACKER_NEW_PEER:
-                p = msg.msg["peer"]
-                ident = p["ident"]
-                self.peers[ident] = peer.Peer(p["host"], ident, p["port"])
-        except:
-            pass
+            self.__lock()
+            self.peers[ident] = peer.Peer(host, ident, port)
+            self.__unlock()
 
     def disconnect(self):
+        if self.ident is not None:
+            print("Node %d: disconnecting" % self.ident)
+        else:
+            print("Node: disconnecting")
+
         self.tracker_socket.close()
 
-    def is_valid(self):
-        return self.ident is not None \
-            and self.socket is not None
+        for conn in self.peer_sockets.values():
+            conn.close()
