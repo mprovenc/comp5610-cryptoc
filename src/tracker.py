@@ -96,13 +96,11 @@ class Tracker:
             conn = self.node_sockets[ident]
             msg = message.recv(conn)
             if not msg:
-                print("Tracker: connection with node %d broken" % ident)
-                self.__remove_node(conn, ident)
-                break
+                continue
 
             if msg.kind == message.Kind.NODE_DISCONNECT:
                 print("Tracker: node %d is disconnecting" % ident)
-                self.__remove_node(conn, ident)
+                self.remove_node(conn, ident)
                 break
 
     def __remove_node(self, conn, ident):
