@@ -26,10 +26,10 @@ class Blockchain:
         self.unconfirmed.append({'sender': sender, 'receiver': receiver, 'amount': amount})
 
         # TODO: the calling program will need to spawn a thread to run the proof of work routine if return value is 1
-        return len(unconfirmed)
+        return len(self.unconfirmed)
 
     def assemble_block_to_broadcast(self):
-        return Block(unconfirmed, self.chain[-1].hash())
+        return Block(self.unconfirmed, self.chain[-1].hash())
 
     def proof_of_work(self):
         #TODO: implement an actual simplified proof of work routine, for now it's just a random backoff value between 0 and 30 seconds
