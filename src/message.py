@@ -153,4 +153,4 @@ def recv(sock):
         # was available on the socket, so perhaps
         # we may need to handle the case where
         # this function may return a list of messages
-        raise ValueError
+        return None
