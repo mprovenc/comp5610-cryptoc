@@ -137,7 +137,7 @@ def recv(sock):
         if n == 0:
             break
         n1 = n - 1
-        if packet[n1] == 255:
+        if packet[n1] == ord('\xFF'):
             data.extend(packet[:n1])
             break
         else:
