@@ -225,8 +225,8 @@ class Node:
         print("Node %d: monitoring messages from peer %d" %
               (self.ident, ident))
 
+        conn = self.peer_sockets[ident]
         while True:
-            conn = self.peer_sockets[ident]
             msg = None
             try:
                 msg = message.recv(conn)

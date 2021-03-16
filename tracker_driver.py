@@ -10,7 +10,7 @@ t = None
 
 
 def sig_handler(signum, frame):
-    print("Server: received signal %d, going down" % signum)
+    print("Tracker: received signal %d, going down" % signum)
     if t:
         t.stop()
         sys.exit(signum)
@@ -25,7 +25,7 @@ def accepter():
 def main():
     port = int(sys.argv[1])
     if util.is_port_in_use(port):
-        print("Server: port %d is already in use" % port)
+        print("Tracker: port %d is already in use" % port)
         sys.exit(1)
 
     # create the tracker
@@ -35,7 +35,7 @@ def main():
     try:
         t.start()
     except Exception:
-        print("Server: failed to start tracker on %s:%d" %
+        print("Tracker: failed to start tracker on %s:%d" %
               (t.addr[0], t.addr[1]))
         sys.exit(1)
 

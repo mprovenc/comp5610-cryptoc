@@ -10,7 +10,7 @@ n = None
 
 
 def sig_handler(signum, frame):
-    print("Client: received signal %d, going down" % signum)
+    print("Node: received signal %d, going down" % signum)
     if n:
         n.disconnect()
         sys.exit(signum)
@@ -31,7 +31,7 @@ def tracker_receiver():
 def main():
     def check_port(port, name):
         if port < 0 or port > 65535:
-            print("Client: invalid %s port %d (must be between 0 and 65535)" %
+            print("Node: invalid %s port %d (must be between 0 and 65535)" %
                   (name, port))
             sys.exit(1)
 
@@ -41,7 +41,7 @@ def main():
     port = int(sys.argv[2])
     check_port(port, "listening")
     if util.is_port_in_use(port):
-        print("Client: port %d is already in use" % port)
+        print("Node: port %d is already in use" % port)
         sys.exit(1)
 
     # create our node
@@ -50,7 +50,7 @@ def main():
 
     # establish a connection with the tracker
     if not n.connect():
-        print("Client: failed to connect to tracker on %s:%d" %
+        print("Node: failed to connect to tracker on %s:%d" %
               (n.tracker_addr[0], n.tracker_addr[1]))
         sys.exit(1)
 
