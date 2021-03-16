@@ -125,7 +125,7 @@ def of_string(s):
         else:
             return None
     except Exception:
-        raise ValueError
+        return None
 
 
 def recv(sock):
