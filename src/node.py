@@ -151,6 +151,9 @@ class Node:
         try:
             msg = message.recv(conn)
         except ValueError:
+            print("Node %d: connection %s:%d broken" %
+                  (self.ident, addr[0], addr[1]))
+            conn.close()
             return
 
         if not msg or msg.kind != message.Kind.PEER_IDENT:
@@ -208,6 +211,9 @@ class Node:
 
         def do_send(conn):
             try:
+                # the socket might contain a bad file descriptor
+                # (i.e. the connection is already gone)
+                # so just continue as normal if sending fails
                 msg.send(conn)
             except OSError:
                 pass
