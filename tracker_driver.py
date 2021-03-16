@@ -11,30 +11,30 @@ t = None
 
 def sig_handler(signum, frame):
     print("Server: received signal %d, going down" % signum)
-    global t
-    if t is not None:
+    if t:
         t.stop()
         sys.exit(signum)
 
 
 # accept new nodes into the network
 def accepter():
-    global t
     while True:
         t.accept()
 
 
 def main():
-    global t
     port = int(sys.argv[1])
     if util.is_port_in_use(port):
         print("Server: port %d is already in use" % port)
         sys.exit(1)
+
+    # create the tracker
+    global t
     t = tracker.Tracker(port)
 
     try:
         t.start()
-    except:
+    except Exception:
         print("Server: failed to start tracker on %s:%d" %
               (t.addr[0], t.addr[1]))
         sys.exit(1)

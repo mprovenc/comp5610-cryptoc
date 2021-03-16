@@ -11,24 +11,21 @@ n = None
 
 def sig_handler(signum, frame):
     print("Client: received signal %d, going down" % signum)
-    global n
-    if n is not None:
+    if n:
         n.disconnect()
         sys.exit(signum)
 
 
 # accept new connections from peers
 def accepter():
-    global n
     while True:
         n.accept()
 
 
 # receive new messages from the tracker
 def tracker_receiver():
-    global n
-    while True:
-        n.recv_tracker()
+    while n.recv_tracker():
+        continue
 
 
 def main():
@@ -38,8 +35,7 @@ def main():
                   (name, port))
             sys.exit(1)
 
-    # create our node
-    global n
+    # do some sanity checks
     tracker_port = int(sys.argv[1])
     check_port(tracker_port, "tracker")
     port = int(sys.argv[2])
@@ -47,27 +43,30 @@ def main():
     if util.is_port_in_use(port):
         print("Client: port %d is already in use" % port)
         sys.exit(1)
-    n = node.Node("localhost", tracker_port, port)
 
-    def fail():
-        global n
-        print("Client: failed to connect to tracker on %s:%d" %
-              (n.tracker_addr[0], n.tracker_addr[1]))
-        sys.exit(1)
+    # create our node
+    global n
+    n = node.Node("localhost", tracker_port, port)
 
     # establish a connection with the tracker
     if not n.connect():
-        fail()
+        print("Client: failed to connect to tracker on %s:%d" %
+              (n.tracker_addr[0], n.tracker_addr[1]))
+        sys.exit(1)
 
     def new_thread(f):
         thread = Thread(target=f, daemon=True)
         thread.start()
         return thread
 
-    # these are our two threads which should run forever
-    a = new_thread(accepter)
+    # the accepter thread will run forever
+    # but we don't care about when it finishes
+    new_thread(accepter)
+
+    # the tracker_receiver thread will finish when
+    # the connection with the tracker is broken,
+    # so we want to wait for that event in main()
     r = new_thread(tracker_receiver)
-    a.join()
     r.join()
 
 

@@ -1,6 +1,5 @@
-import socket
 from threading import Thread, Lock
-from . import message, peer
+from . import message, peer, util
 
 
 class Tracker:
@@ -21,7 +20,7 @@ class Tracker:
         self.lock.acquire()
 
     def start(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket = util.newsock()
         self.socket.bind(self.addr)
         print("Tracker: bind to %s:%d" % (self.addr[0], self.addr[1]))
         self.socket.listen(5)
@@ -94,7 +93,14 @@ class Tracker:
 
         while True:
             conn = self.node_sockets[ident]
-            msg = message.recv(conn)
+            msg = None
+            try:
+                msg = message.recv(conn)
+            except ValueError:
+                print("Tracker: connection with node %d was broken" % ident)
+                self.__remove_node(conn, ident)
+                break
+
             if not msg:
                 continue
 
@@ -105,7 +111,11 @@ class Tracker:
 
     def __remove_node(self, conn, ident):
         self.__lock()
+
         conn.close()
-        self.nodes.pop(ident)
-        self.node_sockets.pop(ident)
+
+        if ident in self.nodes:
+            self.nodes.pop(ident)
+            self.node_sockets.pop(ident)
+
         self.__unlock()

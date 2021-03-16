@@ -124,8 +124,8 @@ def of_string(s):
             return NodeDisconnect()
         else:
             return None
-    except:
-        return None
+    except Exception:
+        raise ValueError
 
 
 def recv(sock):
@@ -143,6 +143,9 @@ def recv(sock):
         else:
             data.extend(packet)
 
+    if not data:
+        raise ValueError
+
     try:
         return of_string(data.decode())
     except UnicodeDecodeError:
@@ -150,4 +153,4 @@ def recv(sock):
         # was available on the socket, so perhaps
         # we may need to handle the case where
         # this function may return a list of messages
-        None
+        raise ValueError
