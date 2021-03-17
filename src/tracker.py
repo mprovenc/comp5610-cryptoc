@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from . import message, peer, util
+from . import blockchain, message, peer, util
 
 
 class Tracker:
@@ -9,6 +9,7 @@ class Tracker:
         self.node_sockets = {}
         self.ident_count = 0
         self.lock = Lock()
+        self.chain = blockchain.Blockchain()
 
     def __unlock(self):
         try:
@@ -34,6 +35,9 @@ class Tracker:
             # assign the next available identifier
             ident = self.ident_count
             message.TrackerIdent(ident).send(conn)
+
+            # send the most current blockchain
+            message.TrackerChain(self.chain.serialize()).send(conn)
 
             # node must tell us what port they intend to listen on
             reply = message.recv(conn)

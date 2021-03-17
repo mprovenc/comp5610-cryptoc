@@ -34,6 +34,8 @@ class Kind(IntEnum):
     # node is disconnecting
     NODE_DISCONNECT = 8
 
+    # tracker sends the existing blockchain to a node
+    TRACKER_CHAIN = 9
 
 # a JSON-serializable message
 class Message:
@@ -54,6 +56,12 @@ class TrackerIdent(Message):
     def __init__(self, ident):
         super().__init__(Kind.TRACKER_IDENT)
         self.msg["ident"] = ident
+
+
+class TrackerChain(Message):
+    def __init__(self, blockchain):
+        super().__init__(Kind.TRACKER_CHAIN)
+        self.msg["blockchain"] = blockchain
 
 
 class NodePort(Message):
@@ -122,6 +130,8 @@ def of_string(s):
             return NodePeers()
         elif k == Kind.NODE_DISCONNECT:
             return NodeDisconnect()
+        elif k == Kind.TRACKER_CHAIN:
+            return TrackerChain(j["blockchain"])
         else:
             return None
     except Exception:

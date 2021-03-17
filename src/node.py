@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from . import message, peer, util
+from . import blockchain, message, peer, util
 
 
 class Node:
@@ -11,6 +11,7 @@ class Node:
         self.peer_sockets = {}
         self.ident = None
         self.socket = None
+        self.chain = None
         self.lock = Lock()
         self.connected = False
 
@@ -46,6 +47,24 @@ class Node:
 
         self.ident = msg.msg["ident"]
         print("Node: received ident %d" % self.ident)
+
+        # receive our blockchain from the tracker
+        try:
+            msg = message.recv(self.tracker_socket)
+            if not msg or msg.kind != message.Kind.TRACKER_CHAIN:
+                raise ValueError
+        except ValueError:
+            print("Node: failed to receive TRACKER_CHAIN")
+            self.disconnect()
+            return False
+
+        chain = msg.msg["blockchain"]
+        blocks = []
+        for b in chain["blocks"]:
+            blocks.append(blockchain.Block(b["transactions"], b["previous_block_hash"], b["timestamp"]))
+        self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
+        
+        print("Node: received chain %s" % str(self.chain))
 
         # reply with the port we want to listen on
         message.NodePort(self.addr[1]).send(self.tracker_socket)
