@@ -30,8 +30,6 @@ class Tracker:
         conn, addr = self.socket.accept()
         print("Tracker: opened connection %s:%d" % (addr[0], addr[1]))
 
-        self.__lock()
-
         try:
             # assign the next available identifier
             ident = self.ident_count
@@ -63,10 +61,16 @@ class Tracker:
             # inform the node that it has been accepted
             message.TrackerAccept().send(conn)
 
-            # register the node
+            self.__lock()
+
+            # register the node.
+            # this operation shouldn't ever fail, so we can
+            # have confidence that the lock will be released.
             self.nodes[ident] = peer.Peer(addr[0], ident, port)
             self.node_sockets[ident] = conn
             self.ident_count += 1
+
+            self.__unlock()
 
             # start a thread to listen for node messages
             thread = Thread(target=self.__recv_node, args=(ident,),
@@ -75,8 +79,6 @@ class Tracker:
         except AssertionError:
             print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
             conn.close()
-
-        self.__unlock()
 
     def stop(self):
         print("Tracker: shutting down")
