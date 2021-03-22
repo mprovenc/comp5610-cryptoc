@@ -80,6 +80,7 @@ class Tracker:
             thread = Thread(target=self.__recv_node, args=(ident,),
                             daemon=True)
             thread.start()
+
         except AssertionError:
             print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
             conn.close()

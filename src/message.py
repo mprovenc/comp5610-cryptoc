@@ -37,6 +37,7 @@ class Kind(IntEnum):
     # tracker sends the existing blockchain to a node
     TRACKER_CHAIN = 9
 
+
 # a JSON-serializable message
 class Message:
     def __init__(self, kind):

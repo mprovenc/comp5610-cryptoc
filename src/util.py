@@ -1,3 +1,4 @@
+import datetime
 import socket
 
 
@@ -8,3 +9,7 @@ def newsock():
 def is_port_in_use(port):
     with newsock() as s:
         return s.connect_ex(("localhost", port)) == 0
+
+
+def deserialize_timestamp(t):
+    datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S.%f")

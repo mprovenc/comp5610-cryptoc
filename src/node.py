@@ -61,9 +61,13 @@ class Node:
         chain = msg.msg["blockchain"]
         blocks = []
         for b in chain["blocks"]:
-            blocks.append(blockchain.Block(b["transactions"], b["previous_block_hash"], b["timestamp"]))
+            trans = b["transactions"]
+            h = b["previous_block_hash"]
+            t = util.deserialize_timestamp(b["timestamp"])
+            blocks.append(blockchain.Block(trans, h, t))
+
         self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
-        
+
         print("Node: received chain %s" % str(self.chain))
 
         # reply with the port we want to listen on
