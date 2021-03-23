@@ -26,7 +26,7 @@ class Node:
 
     def __recv_expect(self, sock, kind):
         try:
-            msg = message.recv(self.tracker_socket)
+            msg = message.recv(sock)
             if not msg or msg.kind != kind:
                 raise ValueError
 
@@ -227,7 +227,10 @@ class Node:
         if not self.connected:
             return
 
-        print("Node %d: disconnecting" % self.ident)
+        if self.ident is None:
+            print("Node: disconnecting")
+        else:
+            print("Node %d: disconnecting" % self.ident)
 
         msg = message.NodeDisconnect()
 
