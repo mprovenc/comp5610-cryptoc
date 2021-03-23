@@ -45,8 +45,6 @@ class Node:
 
         self.connected = True
 
-        msg = None
-
         # receive our identifier from the tracker
         msg = self.__recv_expect(self.tracker_socket,
                                  message.Kind.TRACKER_IDENT)
