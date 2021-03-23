@@ -24,6 +24,18 @@ class Node:
     def __lock(self):
         self.lock.acquire()
 
+    def __recv_expect(self, sock, kind):
+        try:
+            msg = message.recv(self.tracker_socket)
+            if not msg or msg.kind != kind:
+                raise ValueError
+
+        except ValueError:
+            self.disconnect()
+            return False
+
+        return msg
+
     def connect(self):
         # connect to the tracker
         self.tracker_socket = util.newsock()
@@ -36,26 +48,20 @@ class Node:
         msg = None
 
         # receive our identifier from the tracker
-        try:
-            msg = message.recv(self.tracker_socket)
-            if not msg or msg.kind != message.Kind.TRACKER_IDENT:
-                raise ValueError
-        except ValueError:
+        msg = self.__recv_expect(self.tracker_socket,
+                                 message.Kind.TRACKER_IDENT)
+        if msg is False:
             print("Node: failed to receive TRACKER_IDENT")
-            self.disconnect()
             return False
 
         self.ident = msg.msg["ident"]
         print("Node: received ident %d" % self.ident)
 
         # receive our blockchain from the tracker
-        try:
-            msg = message.recv(self.tracker_socket)
-            if not msg or msg.kind != message.Kind.TRACKER_CHAIN:
-                raise ValueError
-        except ValueError:
-            print("Node: failed to receive TRACKER_CHAIN")
-            self.disconnect()
+        msg = self.__recv_expect(self.tracker_socket,
+                                 message.Kind.TRACKER_CHAIN)
+        if msg is False:
+            print("Node %d: failed to receive TRACKER_CHAIN" % self.ident)
             return False
 
         chain = msg.msg["blockchain"]
@@ -68,19 +74,16 @@ class Node:
 
         self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
 
-        print("Node: received chain %s" % str(self.chain))
+        print("Node %d: received chain %s" % (self.ident, str(self.chain)))
 
         # reply with the port we want to listen on
         message.NodePort(self.addr[1]).send(self.tracker_socket)
 
         # receive our peers
-        try:
-            msg = message.recv(self.tracker_socket)
-            if not msg or msg.kind != message.Kind.TRACKER_PEERS:
-                raise ValueError
-        except ValueError:
+        msg = self.__recv_expect(self.tracker_socket,
+                                 message.Kind.TRACKER_PEERS)
+        if msg is False:
             print("Node %d: failed to receive TRACKER_PEERS" % self.ident)
-            self.disconnect()
             return False
 
         # populate with the current peers
@@ -93,13 +96,10 @@ class Node:
         message.NodePeers().send(self.tracker_socket)
 
         # wait to start listening
-        try:
-            msg = message.recv(self.tracker_socket)
-            if not msg or msg.kind != message.Kind.TRACKER_ACCEPT:
-                raise ValueError
-        except ValueError:
+        msg = self.__recv_expect(self.tracker_socket,
+                                 message.Kind.TRACKER_ACCEPT)
+        if msg is False:
             print("Node %d: failed to receive TRACKER_ACCEPT" % self.ident)
-            self.disconnect()
             return False
 
         print("Node %d: accepted by tracker" % self.ident)
@@ -130,7 +130,8 @@ class Node:
             try:
                 reply = message.recv(conn)
             except ValueError:
-                return False
+                print("Node %d: connection with peer %d broken" %
+                      (self.ident, p.ident))
 
             if reply and reply.kind == message.Kind.PEER_ACCEPT:
                 # register the connection
