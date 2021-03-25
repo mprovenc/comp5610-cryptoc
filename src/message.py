@@ -1,5 +1,6 @@
 import json
 from enum import IntEnum, auto
+from . import pkc
 
 
 class Kind(IntEnum):
@@ -50,10 +51,21 @@ class Message:
     def to_string(self):
         return json.dumps(self.msg)
 
-    def send(self, sock):
+    def send(self, sock, enc=None):
         data = bytearray(self.to_string().encode())
-        data.extend(b'\xFF')
-        sock.send(data)
+
+        if enc:
+            data = bytes(data)
+            # encrypt the message, also providing the receiver's public key
+            data = enc[1].encrypt(data, enc[0])
+            # sign the message with our signing key
+            data = enc[1].sign(data)
+            data = bytearray(data)
+
+        # prepend the length of the message as a big-endian 32-bit number
+        # generally speaking, the length is not confidential
+        mlen = len(data).to_bytes(4, byteorder='big')
+        sock.send(mlen + data)
 
 
 class TrackerIdent(Message):
@@ -149,29 +161,47 @@ def of_string(s):
         return None
 
 
-def recv(sock):
+DEFAULT_RECV = 4096
+
+
+def recv(sock, enc=None):
     data = bytearray()
+    size = None
 
     while True:
-        packet = sock.recv(4096)
-        n = len(packet)
-        if n == 0:
-            break
-        n1 = n - 1
-        if packet[n1] == ord('\xFF'):
-            data.extend(packet[:n1])
+        if size is None:
+            packet = sock.recv(DEFAULT_RECV)
+        elif size <= 0:
             break
         else:
+            packet = sock.recv(size)
+
+        if not packet:
+            break
+        elif not data:
+            size = int.from_bytes(packet[0:4], 'big')
+            data.extend(packet[4:])
+            size -= len(data)
+        else:
             data.extend(packet)
+            size -= len(packet)
 
     if not data:
         raise ValueError
 
+    data = bytes(data)
+
+    if enc:
+        try:
+            # verify the message with the sender's verify key
+            pkc.verify(data, enc[0])
+            # decrypt the message, providing the sender's public key
+            data = enc[2].decrypt(data, enc[1])
+        except Exception:
+            # failed to verify/decrypt the message
+            return None
+
     try:
         return of_string(data.decode())
     except UnicodeDecodeError:
-        # this may happen if more than one message
-        # was available on the socket, so perhaps
-        # we may need to handle the case where
-        # this function may return a list of messages
         return None

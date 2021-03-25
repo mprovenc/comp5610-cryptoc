@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from . import blockchain, message, peer, util
+from . import blockchain, message, peer, util, pkc
 
 
 class Tracker:
@@ -10,6 +10,7 @@ class Tracker:
         self.ident_count = 0
         self.lock = Lock()
         self.chain = blockchain.Blockchain()
+        self.key_pair = pkc.KeyPair()
 
     def __unlock(self):
         try:

@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from . import blockchain, message, peer, util, rsa
+from . import blockchain, message, peer, util, pkc
 
 
 class Node:
@@ -14,7 +14,7 @@ class Node:
         self.chain = None
         self.lock = Lock()
         self.connected = False
-        self.key_pair = rsa.KeyPair()
+        self.key_pair = pkc.KeyPair()
 
     def __unlock(self):
         try:
@@ -256,6 +256,8 @@ class Node:
             except OSError:
                 pass
 
+        self.__lock()
+
         do_send(self.tracker_socket)
         for conn in self.peer_sockets.values():
             do_send(conn)
@@ -264,6 +266,8 @@ class Node:
         self.peers = {}
         self.peer_sockets = {}
         self.connected = False
+
+        self.__unlock()
 
     def __recv_peer(self, ident):
         print("Node %d: monitoring messages from peer %d" %
