@@ -1,41 +1,44 @@
 import json
-from enum import IntEnum
+from enum import IntEnum, auto
 
 
 class Kind(IntEnum):
     # tracker assigns an identifier to the node,
     # and will now await the port number that the
     # node wishes to listen for peers on
-    TRACKER_IDENT = 0
+    TRACKER_IDENT = auto()
+
+    # node received the identifier
+    NODE_IDENT = auto()
 
     # node will tell the tracker what port they will listen
     # on for peer connections
-    NODE_PORT = 1
+    NODE_PORT = auto()
 
     # tracker has officially registered the client and will
     # now inform the node of its peers
-    TRACKER_PEERS = 2
+    TRACKER_PEERS = auto()
 
     # node will tell its peer what identifier it is
-    PEER_IDENT = 3
+    PEER_IDENT = auto()
 
     # peer has accepted node
-    PEER_ACCEPT = 4
+    PEER_ACCEPT = auto()
 
     # tracker informs the node that it may begin listening
-    TRACKER_ACCEPT = 5
+    TRACKER_ACCEPT = auto()
 
     # tracker is informing existing nodes of a new peer
-    TRACKER_NEW_PEER = 6
+    TRACKER_NEW_PEER = auto()
 
     # node has received its peers from the tracker
-    NODE_PEERS = 7
+    NODE_PEERS = auto()
 
     # node is disconnecting
-    NODE_DISCONNECT = 8
+    NODE_DISCONNECT = auto()
 
     # tracker sends the existing blockchain to a node
-    TRACKER_CHAIN = 9
+    TRACKER_CHAIN = auto()
 
 
 # a JSON-serializable message
@@ -57,6 +60,11 @@ class TrackerIdent(Message):
     def __init__(self, ident):
         super().__init__(Kind.TRACKER_IDENT)
         self.msg["ident"] = ident
+
+
+class NodeIdent(Message):
+    def __init__(self):
+        super().__init__(Kind.NODE_IDENT)
 
 
 class TrackerChain(Message):
@@ -115,6 +123,8 @@ def of_string(s):
         k = j["kind"]
         if k == Kind.TRACKER_IDENT:
             return TrackerIdent(j["ident"])
+        elif k == Kind.NODE_IDENT:
+            return NodeIdent()
         elif k == Kind.NODE_PORT:
             return NodePort(j["port"])
         elif k == Kind.TRACKER_PEERS:

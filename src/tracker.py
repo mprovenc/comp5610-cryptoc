@@ -36,6 +36,10 @@ class Tracker:
             ident = self.ident_count
             message.TrackerIdent(ident).send(conn)
 
+            reply = message.recv(conn)
+            assert(reply and reply.kind == message.Kind.NODE_IDENT)
+            print("Tracker: node %d received identifier" % ident)
+
             # send the most current blockchain
             message.TrackerChain(self.chain.serialize()).send(conn)
 
@@ -83,6 +87,10 @@ class Tracker:
 
         except AssertionError:
             print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
+            conn.close()
+
+        except ValueError:
+            print("Tracker: connection %s:%d broken" % (addr[0], addr[1]))
             conn.close()
 
     def stop(self):

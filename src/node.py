@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from . import blockchain, message, peer, util
+from . import blockchain, message, peer, util, rsa
 
 
 class Node:
@@ -14,6 +14,7 @@ class Node:
         self.chain = None
         self.lock = Lock()
         self.connected = False
+        self.key_pair = rsa.KeyPair()
 
     def __unlock(self):
         try:
@@ -29,17 +30,27 @@ class Node:
             msg = message.recv(sock)
             if not msg or msg.kind != kind:
                 raise ValueError
-
         except ValueError:
             self.disconnect()
             return False
 
         return msg
 
+    def __try_connect(self):
+        try:
+            self.tracker_socket.connect(self.tracker_addr)
+            return True
+        except ConnectionRefusedError:
+            return False
+
     def connect(self):
         # connect to the tracker
         self.tracker_socket = util.newsock()
-        self.tracker_socket.connect(self.tracker_addr)
+        if not self.__try_connect():
+            print("Node: connection to tracker on %s:%d refused" %
+                  (self.tracker_addr[0], self.tracker_addr[1]))
+            return False
+
         print("Node: connected to tracker on %s:%d" %
               (self.tracker_addr[0], self.tracker_addr[1]))
 
@@ -54,6 +65,8 @@ class Node:
 
         self.ident = msg.msg["ident"]
         print("Node: received ident %d" % self.ident)
+
+        message.NodeIdent().send(self.tracker_socket)
 
         # receive our blockchain from the tracker
         msg = self.__recv_expect(self.tracker_socket,
@@ -71,8 +84,8 @@ class Node:
             blocks.append(blockchain.Block(trans, h, t))
 
         self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
-
-        print("Node %d: received chain %s" % (self.ident, str(self.chain)))
+        print("Node %d: received chain %s" %
+              (self.ident, str(self.chain.serialize())))
 
         # reply with the port we want to listen on
         message.NodePort(self.addr[1]).send(self.tracker_socket)

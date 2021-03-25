@@ -2,18 +2,31 @@
 
 import signal
 import sys
-from threading import Thread
+from threading import current_thread, Thread
 from src import node, util
 
 # global node object
 n = None
 
 
+def is_main_thread():
+    return current_thread().__class__.__name__ == '_MainThread'
+
+
 def sig_handler(signum, frame):
-    print("Node: received signal %d, going down" % signum)
-    if n:
+    if not n:
+        return
+
+    # worker thread terminated, just ignore it
+    if signum == signal.SIGCHLD:
+        return
+
+    # we only care if a signal was sent to the main thread (i.e. the driver)
+    if is_main_thread():
+        print("Node: received signal %d, going down" % signum)
         n.disconnect()
-        sys.exit(signum)
+
+    sys.exit(signum)
 
 
 # accept new connections from peers
