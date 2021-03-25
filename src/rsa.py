@@ -3,6 +3,7 @@ import multiprocessing
 
 
 DEFAULT_KEY_SIZE = 2048
+DEFAULT_HASH_METHOD = 'SHA-256'
 
 
 class KeyPair:
@@ -25,13 +26,13 @@ class KeyPair:
     def decrypt_private(self, msg):
         return rsa.pkcs1.decrypt(msg, self.private_key)
 
-    def sign(self, msg):
-        return rsa.pkcs1.sign(msg, self.private_key, 'SHA-256')
+    def sign(self, msg, hash_method=DEFAULT_HASH_METHOD):
+        return rsa.pkcs1.sign(msg, self.private_key, hash_method)
 
     def serialize_public_key(self):
         return (self.public_key.n, self.public_key.e)
 
 
-def verify(msg, sig, public_key):
+def verify(msg, sig, public_key, hash_method=DEFAULT_HASH_METHOD):
     k = rsa.PublicKey(public_key[0], public_key[1])
-    return rsa.pkcs1.verify(msg, sig, k) == 'SHA-256'
+    return rsa.pkcs1.verify(msg, sig, k) == hash_method
