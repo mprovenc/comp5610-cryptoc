@@ -15,6 +15,8 @@ class Node:
         self.lock = Lock()
         self.connected = False
         self.key_pair = pkc.KeyPair()
+        self.tracker_public_key = None
+        self.tracker_verify_key = None
 
     def __unlock(self):
         try:
@@ -25,9 +27,9 @@ class Node:
     def __lock(self):
         self.lock.acquire()
 
-    def __recv_expect(self, sock, kind):
+    def __recv_expect(self, sock, kind, enc=None):
         try:
-            msg = message.recv(sock)
+            msg = message.recv(sock, enc)
             if not msg or msg.kind != kind:
                 raise ValueError
         except ValueError:
@@ -56,6 +58,10 @@ class Node:
 
         self.connected = True
 
+        message.NodeKeys(self.key_pair.serialize_public_key(),
+                         self.key_pair.serialize_verify_key()) \
+               .send(self.tracker_socket)
+
         # receive our identifier from the tracker
         msg = self.__recv_expect(self.tracker_socket,
                                  message.Kind.TRACKER_IDENT)
@@ -64,13 +70,24 @@ class Node:
             return False
 
         self.ident = msg.msg["ident"]
+        self.tracker_public_key = \
+            pkc.deserialize_public_key(msg.msg["public_key"])
+        self.tracker_verify_key = \
+            pkc.deserialize_verify_key(msg.msg["verify_key"])
         print("Node: received ident %d" % self.ident)
 
-        message.NodeIdent().send(self.tracker_socket)
+        enc_recv = (self.tracker_verify_key,
+                    self.tracker_public_key,
+                    self.key_pair)
+
+        enc_send = (self.tracker_public_key, self.key_pair)
+
+        message.NodeIdent().send(self.tracker_socket, enc_send)
 
         # receive our blockchain from the tracker
         msg = self.__recv_expect(self.tracker_socket,
-                                 message.Kind.TRACKER_CHAIN)
+                                 message.Kind.TRACKER_CHAIN,
+                                 enc_recv)
         if msg is False:
             print("Node %d: failed to receive TRACKER_CHAIN" % self.ident)
             return False
@@ -88,11 +105,12 @@ class Node:
               (self.ident, str(self.chain.serialize())))
 
         # reply with the port we want to listen on
-        message.NodePort(self.addr[1]).send(self.tracker_socket)
+        message.NodePort(self.addr[1]).send(self.tracker_socket, enc_send)
 
         # receive our peers
         msg = self.__recv_expect(self.tracker_socket,
-                                 message.Kind.TRACKER_PEERS)
+                                 message.Kind.TRACKER_PEERS,
+                                 enc_recv)
         if msg is False:
             print("Node %d: failed to receive TRACKER_PEERS" % self.ident)
             return False
@@ -101,14 +119,21 @@ class Node:
         peers = msg.msg["peers"]
         for p in peers:
             ident = p["ident"]
-            self.peers[ident] = peer.Peer(p["host"], ident, p["port"])
+            public_key = pkc.deserialize_public_key(p["public_key"])
+            verify_key = pkc.deserialize_verify_key(p["verify_key"])
+            self.peers[ident] = peer.Peer(p["host"],
+                                          ident,
+                                          p["port"],
+                                          public_key,
+                                          verify_key)
 
         # tell the tracker we received the peers
-        message.NodePeers().send(self.tracker_socket)
+        message.NodePeers().send(self.tracker_socket, enc_send)
 
         # wait to start listening
         msg = self.__recv_expect(self.tracker_socket,
-                                 message.Kind.TRACKER_ACCEPT)
+                                 message.Kind.TRACKER_ACCEPT,
+                                 enc_recv)
         if msg is False:
             print("Node %d: failed to receive TRACKER_ACCEPT" % self.ident)
             return False
@@ -136,10 +161,12 @@ class Node:
             # tell them our identifier
             message.PeerIdent(self.ident).send(conn)
 
+            enc_recv_p = (p.verify_key, p.public_key, self.key_pair)
+
             # wait for acceptance
             reply = None
             try:
-                reply = message.recv(conn)
+                reply = message.recv(conn, enc_recv_p)
             except ValueError:
                 print("Node %d: connection with peer %d broken" %
                       (self.ident, p.ident))
@@ -198,9 +225,16 @@ class Node:
             return
 
         ident = msg.msg["ident"]
+        if ident not in self.peers:
+            print("Node %d: rejecting connection %s:%d" %
+                  (self.ident, addr[0], addr[1]))
+            conn.close()
+            return
+
+        enc_send = (self.peers[ident].public_key, self.key_pair)
 
         # tell them we've accepted them
-        message.PeerAccept().send(conn)
+        message.PeerAccept().send(conn, enc_send)
         print("Node %d: accepting connection from peer %d on %s:%d" %
               (self.ident, ident, addr[0], addr[1]))
 
@@ -208,8 +242,12 @@ class Node:
 
     def recv_tracker(self):
         msg = None
+        enc_recv = (self.tracker_verify_key,
+                    self.tracker_public_key,
+                    self.key_pair)
+
         try:
-            msg = message.recv(self.tracker_socket)
+            msg = message.recv(self.tracker_socket, enc_recv)
         except ValueError:
             print("Node %d: connection with tracker broken" % self.ident)
             self.disconnect()
@@ -226,12 +264,20 @@ class Node:
             ident = p["ident"]
             host = p["host"]
             port = p["port"]
+            public_key = pkc.deserialize_public_key(p["public_key"])
+            verify_key = pkc.deserialize_verify_key(p["verify_key"])
 
             print("Node %d: received new peer %d on %s:%d" %
                   (self.ident, ident, host, port))
 
             self.__lock()
-            self.peers[ident] = peer.Peer(host, ident, port)
+
+            self.peers[ident] = peer.Peer(host,
+                                          ident,
+                                          port,
+                                          public_key,
+                                          verify_key)
+
             self.__unlock()
 
         return True
@@ -247,20 +293,26 @@ class Node:
 
         msg = message.NodeDisconnect()
 
-        def do_send(conn):
+        def do_send(conn, enc=None):
             try:
                 # the socket might contain a bad file descriptor
                 # (i.e. the connection is already gone)
                 # so just continue as normal if sending fails
-                msg.send(conn)
+                msg.send(conn, enc)
             except OSError:
                 pass
 
         self.__lock()
 
-        do_send(self.tracker_socket)
-        for conn in self.peer_sockets.values():
-            do_send(conn)
+        if self.tracker_public_key:
+            do_send(self.tracker_socket,
+                    (self.tracker_public_key, self.key_pair))
+        else:
+            do_send(self.tracker_socket)
+
+        for p in self.peers.values():
+            conn = self.peer_sockets[p.ident]
+            do_send(conn, (p.public_key, self.key_pair))
 
         self.tracker_socket.close()
         self.peers = {}
@@ -274,10 +326,14 @@ class Node:
               (self.ident, ident))
 
         conn = self.peer_sockets[ident]
+        enc_recv = (self.peers[ident].verify_key,
+                    self.peers[ident].public_key,
+                    self.key_pair)
+
         while True:
             msg = None
             try:
-                msg = message.recv(conn)
+                msg = message.recv(conn, enc_recv)
             except ValueError:
                 print("Node %d: connection with peer %d broken" %
                       (self.ident, ident))

@@ -33,19 +33,31 @@ class Tracker:
         print("Tracker: opened connection %s:%d" % (addr[0], addr[1]))
 
         try:
+            initial = message.recv(conn)
+            assert(initial and initial.kind == message.Kind.NODE_KEYS)
+
+            public_key = pkc.deserialize_public_key(initial.msg["public_key"])
+            verify_key = pkc.deserialize_verify_key(initial.msg["verify_key"])
+
             # assign the next available identifier
             ident = self.ident_count
-            message.TrackerIdent(ident).send(conn)
+            message.TrackerIdent(ident,
+                                 self.key_pair.serialize_public_key(),
+                                 self.key_pair.serialize_verify_key()) \
+                   .send(conn)
 
-            reply = message.recv(conn)
+            enc_send = (public_key, self.key_pair)
+            enc_recv = (verify_key, public_key, self.key_pair)
+
+            reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_IDENT)
             print("Tracker: node %d received identifier" % ident)
 
             # send the most current blockchain
-            message.TrackerChain(self.chain.serialize()).send(conn)
+            message.TrackerChain(self.chain.serialize()).send(conn, enc_send)
 
             # node must tell us what port they intend to listen on
-            reply = message.recv(conn)
+            reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_PORT)
             port = reply.msg["port"]
             print("Tracker: connection %s:%d will listen on port %d" %
@@ -55,27 +67,35 @@ class Tracker:
             peers = []
             for p in self.nodes.values():
                 peers.append(p.serialize())
-            message.TrackerPeers(peers).send(conn)
+            message.TrackerPeers(peers).send(conn, enc_send)
 
             # wait for the node to inform us that it received the peers
-            reply = message.recv(conn)
+            reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_PEERS)
             print("Tracker: node %d accepted peers" % ident)
 
             # inform existing nodes of their new peer
-            new_peer = peer.Peer(addr[0], ident, port).serialize()
-            for nconn in self.node_sockets.values():
-                message.TrackerNewPeer(new_peer).send(nconn)
+            new_peer = peer.Peer(addr[0], ident, port, public_key, verify_key)
+            new_peer_s = new_peer.serialize()
+            for n in self.nodes.values():
+                nconn = self.node_sockets[n.ident]
+                nenc = (n.public_key, self.key_pair)
+                message.TrackerNewPeer(new_peer_s).send(nconn, nenc)
 
             # inform the node that it has been accepted
-            message.TrackerAccept().send(conn)
+            message.TrackerAccept().send(conn, enc_send)
 
             self.__lock()
 
             # register the node.
             # this operation shouldn't ever fail, so we can
             # have confidence that the lock will be released.
-            self.nodes[ident] = peer.Peer(addr[0], ident, port)
+            self.nodes[ident] = peer.Peer(addr[0],
+                                          ident,
+                                          port,
+                                          public_key,
+                                          verify_key)
+
             self.node_sockets[ident] = conn
             self.ident_count += 1
 
@@ -108,10 +128,13 @@ class Tracker:
         print("Tracker: monitoring messages from node %d" % ident)
 
         conn = self.node_sockets[ident]
+        n = self.nodes[ident]
+        enc_recv = (n.verify_key, n.public_key, self.key_pair)
+
         while True:
             msg = None
             try:
-                msg = message.recv(conn)
+                msg = message.recv(conn, enc_recv)
             except ValueError:
                 print("Tracker: connection with node %d was broken" % ident)
                 self.__remove_node(conn, ident)

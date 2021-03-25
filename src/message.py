@@ -4,9 +4,13 @@ from . import pkc
 
 
 class Kind(IntEnum):
+    # node sends its public key and verify key
+    NODE_KEYS = auto()
+
     # tracker assigns an identifier to the node,
     # and will now await the port number that the
-    # node wishes to listen for peers on
+    # node wishes to listen for peers on.
+    # tracker also sends its public key and verify key.
     TRACKER_IDENT = auto()
 
     # node received the identifier
@@ -65,13 +69,23 @@ class Message:
         # prepend the length of the message as a big-endian 32-bit number
         # generally speaking, the length is not confidential
         mlen = len(data).to_bytes(4, byteorder='big')
-        sock.send(mlen + data)
+        data = mlen + data
+        sock.send(data)
+
+
+class NodeKeys(Message):
+    def __init__(self, public_key, verify_key):
+        super().__init__(Kind.NODE_KEYS)
+        self.msg["public_key"] = public_key
+        self.msg["verify_key"] = verify_key
 
 
 class TrackerIdent(Message):
-    def __init__(self, ident):
+    def __init__(self, ident, public_key, verify_key):
         super().__init__(Kind.TRACKER_IDENT)
         self.msg["ident"] = ident
+        self.msg["public_key"] = public_key
+        self.msg["verify_key"] = verify_key
 
 
 class NodeIdent(Message):
@@ -133,8 +147,12 @@ def of_string(s):
     try:
         j = json.loads(s)
         k = j["kind"]
-        if k == Kind.TRACKER_IDENT:
-            return TrackerIdent(j["ident"])
+        if k == Kind.NODE_KEYS:
+            return NodeKeys(j["public_key"], j["verify_key"])
+        elif k == Kind.TRACKER_IDENT:
+            return TrackerIdent(j["ident"],
+                                j["public_key"],
+                                j["verify_key"])
         elif k == Kind.NODE_IDENT:
             return NodeIdent()
         elif k == Kind.NODE_PORT:
@@ -194,12 +212,12 @@ def recv(sock, enc=None):
     if enc:
         try:
             # verify the message with the sender's verify key
-            pkc.verify(data, enc[0])
+            data = pkc.verify(data, enc[0])
             # decrypt the message, providing the sender's public key
             data = enc[2].decrypt(data, enc[1])
         except Exception:
             # failed to verify/decrypt the message
-            return None
+            raise ValueError
 
     try:
         return of_string(data.decode())
