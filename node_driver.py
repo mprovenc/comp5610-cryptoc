@@ -14,18 +14,15 @@ def is_main_thread():
 
 
 def sig_handler(signum, frame):
-    if not n:
+    if not n or not is_main_thread():
         return
 
     # worker thread terminated, just ignore it
     if signum == signal.SIGCHLD:
         return
 
-    # we only care if a signal was sent to the main thread (i.e. the driver)
-    if is_main_thread():
-        print("Node: received signal %d, going down" % signum)
-        n.disconnect()
-
+    print("Node: received signal %d, going down" % signum)
+    n.disconnect()
     sys.exit(signum)
 
 
