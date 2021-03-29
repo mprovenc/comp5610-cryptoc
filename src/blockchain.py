@@ -1,3 +1,4 @@
+import json
 import datetime
 import time
 from random import randint
@@ -6,24 +7,25 @@ from hashlib import sha256
 
 class Block:
     def __init__(self, transactions, previous_block_hash,
-                 timestamp=datetime.datetime.now()):
+                 timestamp=datetime.datetime.now(), nonce=0):
         self.transactions = transactions
-        self.previous_block_hash = previous_block_hash
+        self.previous_block_hash = previous_block_hash # hex format
         self.timestamp = timestamp
+
+        self.nonce = nonce
+        self.this_hash = self.hash()
 
     def serialize(self):
         return {"transactions": self.transactions,
                 "previous_block_hash": self.previous_block_hash,
-                "timestamp": str(self.timestamp)}
+                "timestamp": str(self.timestamp),
+                "nonce": self.nonce}
 
     def hash(self):
-        transactions_as_bytes = bytes(self.transactions)
-        return sha256(transactions_as_bytes)
-
+        return sha256(json.dumps(self.serialize()).encode('utf-8'))
 
 class Blockchain:
     def __init__(self, blocks=[Block([], '')], unconfirmed=[]):
-        # put an empty block at the start of the chain
         self.blocks = blocks
         self.unconfirmed = unconfirmed
 
@@ -50,12 +52,16 @@ class Blockchain:
         # to run the proof of work routine if return value is 1
         return len(self.unconfirmed)
 
-    def assemble_block_to_broadcast(self):
-        return Block(self.unconfirmed, self.blocks[-1].hash())
+    def proof_of_work(self, difficulty=4):
+        unconfirmed_block = Block(self.unconfirmed, self.blocks[-1].this_hash.hexdigest())
+        
+        # keep incrementing nonce until we "crack" the hash
+        while True:
+            unconfirmed_block.this_hash = unconfirmed_block.hash()
+            if int(unconfirmed_block.this_hash.hexdigest()[:difficulty], 16) <= 0:
+                break
+            unconfirmed_block.nonce += 1
 
-    def proof_of_work(self):
-        # TODO: implement an actual simplified proof of work routine,
-        # for now it's just a random backoff value between 0 and 30 seconds
-        time.sleep(randint(0, 30000) / 1000)
+        print("number of rounds to complete pow: %s" % unconfirmed_block.nonce)
 
-        return self.assemble_block_to_broadcast()
+        return unconfirmed_block
