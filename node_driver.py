@@ -2,6 +2,7 @@
 
 import signal
 import sys
+import cmd
 from threading import current_thread, Thread
 from src import node, util
 
@@ -36,6 +37,20 @@ def accepter():
 def tracker_receiver():
     while n.recv_tracker():
         continue
+
+
+class NodeShell(cmd.Cmd):
+    prompt = "> "
+
+    def do_disconnect(self, line):
+        "Disconnect from the tracker."
+        n.disconnect()
+        return True
+
+    def do_EOF(self, line):
+        "End-of-file; disconnects the node."
+        n.disconnect()
+        return True
 
 
 def main():
@@ -74,10 +89,11 @@ def main():
     new_thread(accepter)
 
     # the tracker_receiver thread will finish when
-    # the connection with the tracker is broken,
-    # so we want to wait for that event in main()
-    r = new_thread(tracker_receiver)
-    r.join()
+    # the connection with the tracker is broken
+    new_thread(tracker_receiver)
+
+    # the node will stay up as long as the REPL is running
+    NodeShell().cmdloop()
 
 
 if __name__ == "__main__":
