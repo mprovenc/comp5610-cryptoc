@@ -56,6 +56,9 @@ class NodeShell(cmd.Cmd):
         "Show peers"
         for p in n.peers:
             print(p)
+
+    def do_chain(self, line):
+        print(n.chain.serialize())
     
     def do_transaction(self, line):
         "Sending transaction"

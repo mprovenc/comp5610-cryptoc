@@ -7,7 +7,7 @@ from hashlib import sha256
 
 class Block:
     def __init__(self, transactions, previous_block_hash,
-                 timestamp=datetime.datetime.now(), nonce=0):
+                 timestamp=datetime.datetime.now(), nonce=randint(0, 10000)):
         self.transactions = transactions
         self.previous_block_hash = previous_block_hash # hex format
         self.timestamp = timestamp
@@ -41,6 +41,7 @@ class Blockchain:
 
     def add_block(self, block):
         self.blocks.append(block)
+        self.unconfirmed = []
 
 
     def add_unconfirmed_transaction(self, transaction, previous_transactions):
@@ -67,3 +68,4 @@ class Blockchain:
 
         # push the unconfirmed block onto the synchronized queue
         q.put(unconfirmed_block)
+

@@ -372,6 +372,7 @@ class Node:
 
 
     def __broadcast_message(self, msg):
+        print("Node %d: sending a broadcast message" % self.ident)
         for ident, p in self.peers.items():
             enc = (p.public_key, self.key_pair)
             msg.send(self.peer_sockets[ident], enc)
@@ -384,6 +385,9 @@ class Node:
                        'amount': amount}
         msg = message.PeerTransaction(transaction)
 
+        # make sure it is added to this node's list of unconfirmed transactions
+        self.recv_transaction(transaction)
+
         self.__broadcast_message(msg)
 
 
@@ -394,9 +398,14 @@ class Node:
             self.mining_thread = util.StoppableThread(target=self.chain.proof_of_work, args=(q,)).start()
             self.send_block(q.get())
 
+
     def send_block(self, block):
         print("sending block")
         msg = message.PeerBlock(block.serialize())
+
+        # make sure it is added to this node's chain
+        self.recv_block(block.serialize())
+
         self.__broadcast_message(msg)
 
 
