@@ -1,3 +1,4 @@
+from queue import Queue
 from threading import Thread, Lock
 from . import blockchain, message, peer, util, pkc
 
@@ -17,6 +18,7 @@ class Node:
         self.key_pair = pkc.KeyPair()
         self.tracker_public_key = None
         self.tracker_verify_key = None
+        self.mining_thread = None
 
     def __unlock(self):
         try:
@@ -352,7 +354,10 @@ class Node:
                 print("Node %d: received transaction from peer %s" %
                       (self.ident, ident))
                 self.recv_transaction(msg.msg["transaction"])
-                break
+            elif msg.kind == message.Kind.PEER_BLOCK:
+                print("Node %d: received block from peer %s" %
+                      (self.ident, ident))
+                self.recv_block(msg.msg["block"])
 
     def __remove_peer(self, conn, ident):
         self.__lock()
@@ -365,16 +370,39 @@ class Node:
 
         self.__unlock()
 
+
+    def __broadcast_message(self, msg):
+        for ident, p in self.peers.items():
+            enc = (p.public_key, self.key_pair)
+            msg.send(self.peer_sockets[ident], enc)
+
+
     def send_transaction(self, receiver, amount):
         # serialize the transaction before broadcast
         transaction = {'sender': self.ident, 
                        'receiver': receiver,
                        'amount': amount}
+        msg = message.PeerTransaction(transaction)
 
-        for ident, p in self.peers.items():
-            enc = (p.public_key, self.key_pair)
-            msg = message.PeerTransaction(transaction).send(self.peer_sockets[ident], enc)
+        self.__broadcast_message(msg)
+
 
     def recv_transaction(self, transaction):
-        print("recv transaction placeholder")
-        pass
+        if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
+            # start mining block
+            q = Queue()
+            self.mining_thread = util.StoppableThread(target=self.chain.proof_of_work, args=(q,)).start()
+            self.send_block(q.get())
+
+    def send_block(self, block):
+        print("sending block")
+        msg = message.PeerBlock(block.serialize())
+        self.__broadcast_message(msg)
+
+
+    def recv_block(self, block):
+        print("receiving block")
+        if self.mining_thread and self.mining_thread.is_alive():
+            mining_thread.stop()
+            mining_thread.join()
+        self.chain.add_block(blockchain.Block(block["transactions"], block["previous_block_hash"]))

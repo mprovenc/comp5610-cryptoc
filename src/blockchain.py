@@ -39,20 +39,21 @@ class Blockchain:
         return {"blocks": self.serialize_blocks(),
                 "unconfirmed": self.unconfirmed}
 
-    def add_unconfirmed_transaction(self, sender, receiver, amount,
-                                    previous_transactions):
+    def add_block(self, block):
+        self.blocks.append(block)
+
+
+    def add_unconfirmed_transaction(self, transaction, previous_transactions):
         # TODO: check to make sure that sender has enough balance
         # for transaction by looking at previous_transactions
         # return -1 to indicate an invalid transaction
-        self.unconfirmed.append({'sender': sender,
-                                 'receiver': receiver,
-                                 'amount': amount})
+        self.unconfirmed.append(transaction)
 
         # TODO: the calling program will need to spawn a thread
         # to run the proof of work routine if return value is 1
         return len(self.unconfirmed)
 
-    def proof_of_work(self, difficulty=4):
+    def proof_of_work(self, q, difficulty=5):
         unconfirmed_block = Block(self.unconfirmed, self.blocks[-1].this_hash.hexdigest())
         
         # keep incrementing nonce until we "crack" the hash
@@ -64,4 +65,5 @@ class Blockchain:
 
         print("number of rounds to complete pow: %s" % unconfirmed_block.nonce)
 
-        return unconfirmed_block
+        # push the unconfirmed block onto the synchronized queue
+        q.put(unconfirmed_block)

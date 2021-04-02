@@ -48,6 +48,9 @@ class Kind(IntEnum):
     # peer sends a transaction to another peer
     PEER_TRANSACTION = auto()
 
+    # peer sends a block to another peer
+    PEER_BLOCK = auto()
+
 
 # a JSON-serializable message
 class Message:
@@ -151,6 +154,13 @@ class PeerTransaction(Message):
         super().__init__(Kind.PEER_TRANSACTION)
         self.msg["transaction"] = transaction
 
+
+class PeerBlock(Message):
+    def __init__(self, block):
+        super().__init__(Kind.PEER_BLOCK)
+        self.msg["block"] = block
+
+
 def of_string(s):
     try:
         j = json.loads(s)
@@ -183,6 +193,8 @@ def of_string(s):
             return TrackerChain(j["blockchain"])
         elif k == Kind.PEER_TRANSACTION:
             return PeerTransaction(j["transaction"])
+        elif k == Kind.PEER_BLOCK:
+            return PeerBlock(j["block"])
         else:
             return None
     except Exception:
