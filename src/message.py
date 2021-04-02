@@ -45,6 +45,9 @@ class Kind(IntEnum):
     # tracker sends the existing blockchain to a node
     TRACKER_CHAIN = auto()
 
+    # peer sends a transaction to another peer
+    PEER_TRANSACTION = auto()
+
 
 # a JSON-serializable message
 class Message:
@@ -143,6 +146,11 @@ class NodeDisconnect(Message):
         super().__init__(Kind.NODE_DISCONNECT)
 
 
+class PeerTransaction(Message):
+    def __init__(self, transaction):
+        super().__init__(Kind.PEER_TRANSACTION)
+        self.msg["transaction"] = transaction
+
 def of_string(s):
     try:
         j = json.loads(s)
@@ -173,6 +181,8 @@ def of_string(s):
             return NodeDisconnect()
         elif k == Kind.TRACKER_CHAIN:
             return TrackerChain(j["blockchain"])
+        elif k == Kind.PEER_TRANSACTION:
+            return PeerTransaction(j["transaction"])
         else:
             return None
     except Exception:

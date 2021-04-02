@@ -348,6 +348,11 @@ class Node:
                       (self.ident, ident))
                 self.__remove_peer(conn, ident)
                 break
+            elif msg.kind == message.Kind.PEER_TRANSACTION:
+                print("Node %d: received transaction from peer %s" %
+                      (self.ident, ident))
+                self.recv_transaction(msg.msg["transaction"])
+                break
 
     def __remove_peer(self, conn, ident):
         self.__lock()
@@ -361,5 +366,15 @@ class Node:
         self.__unlock()
 
     def send_transaction(self, receiver, amount):
-        print("send_transaction function placeholder")
+        # serialize the transaction before broadcast
+        transaction = {'sender': self.ident, 
+                       'receiver': receiver,
+                       'amount': amount}
+
+        for ident, p in self.peers.items():
+            enc = (p.public_key, self.key_pair)
+            msg = message.PeerTransaction(transaction).send(self.peer_sockets[ident], enc)
+
+    def recv_transaction(self, transaction):
+        print("recv transaction placeholder")
         pass
