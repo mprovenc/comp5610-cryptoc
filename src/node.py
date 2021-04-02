@@ -359,3 +359,7 @@ class Node:
             self.peer_sockets.pop(ident)
 
         self.__unlock()
+
+    def send_transaction(self, receiver, amount):
+        print("send_transaction function placeholder")
+        pass

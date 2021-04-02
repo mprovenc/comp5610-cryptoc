@@ -52,6 +52,14 @@ class NodeShell(cmd.Cmd):
         n.disconnect()
         return True
 
+    def do_peers(self, line):
+        "Show peers"
+        for p in n.peers:
+            print(p)
+    
+    def do_transaction(self, line):
+        "Sending transaction"
+        n.send_transaction(*util.parse(line))
 
 def main():
     def check_port(port, name):

@@ -13,3 +13,8 @@ def is_port_in_use(port):
 
 def deserialize_timestamp(t):
     datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S.%f")
+
+
+def parse(arg):
+    'Convert a series of zero or more numbers to an argument tuple'
+    return tuple(map(int, arg.split()))
