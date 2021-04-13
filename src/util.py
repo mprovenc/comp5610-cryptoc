@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import socket
 from threading import Thread, Event
 
@@ -16,6 +16,8 @@ class StoppableThread(Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
+def printts(*args, **kwargs):
+  print(datetime.now(), *args, **kwargs)
 
 def newsock():
     return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,7 +29,7 @@ def is_port_in_use(port):
 
 
 def deserialize_timestamp(t):
-    datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S.%f")
+    datetime.strptime(t, "%Y-%m-%d %H:%M:%S.%f")
 
 
 def parse(arg):
