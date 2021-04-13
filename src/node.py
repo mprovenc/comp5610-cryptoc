@@ -18,7 +18,6 @@ class Node:
         self.key_pair = pkc.KeyPair()
         self.tracker_public_key = None
         self.tracker_verify_key = None
-        self.mining_thread = None
         self.block_queue = None
 
     def __unlock(self):
@@ -396,10 +395,13 @@ class Node:
         if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
             # start mining block
             self.block_queue = Queue()
-            self.mining_thread = proof_of_work.ProofOfWork(self.chain, self.block_queue)
-            self.mining_thread.start()
+            mining_thread = proof_of_work.ProofOfWork(self.chain, self.block_queue)
+            mining_thread.start()
             val = self.block_queue.get()
-            if val != "STOP":
+            if val == "STOP":
+                mining_thread.stop()
+                mining_thread.join()
+            else:
                 self.send_block(val)
 
 
@@ -416,8 +418,4 @@ class Node:
     def recv_block(self, block):
         util.printts("Node %d: receiving block" % self.ident)
         self.block_queue.put("STOP")
-        if self.mining_thread and self.mining_thread.is_alive():
-            util.printts("Node %d: stopping and joining mining thread" % self.ident)
-            self.mining_thread.stop()
-            self.mining_thread.join()
         self.chain.add_block(blockchain.Block(block["transactions"], block["previous_block_hash"]))
