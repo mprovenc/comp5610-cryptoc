@@ -2,7 +2,7 @@ from . import blockchain
 from threading import Thread, Event
 
 class ProofOfWork(Thread):
-    def __init__(self, chain, q, difficulty=5):
+    def __init__(self, chain, q, difficulty=6):
         self._stop_event = Event()
         self.chain = chain
         self.q = q
