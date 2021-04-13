@@ -1,6 +1,6 @@
 from queue import Queue
 from threading import Thread, Lock
-from . import blockchain, message, peer, util, pkc
+from . import blockchain, message, peer, util, pkc, proof_of_work
 
 
 class Node:
@@ -19,6 +19,7 @@ class Node:
         self.tracker_public_key = None
         self.tracker_verify_key = None
         self.mining_thread = None
+        self.block_queue = None
 
     def __unlock(self):
         try:
@@ -355,7 +356,7 @@ class Node:
                       (self.ident, ident))
                 self.recv_transaction(msg.msg["transaction"])
             elif msg.kind == message.Kind.PEER_BLOCK:
-                print("Node %d: received block from peer %s" %
+                util.printts("Node %d: received block from peer %s" %
                       (self.ident, ident))
                 self.recv_block(msg.msg["block"])
 
@@ -394,9 +395,12 @@ class Node:
     def recv_transaction(self, transaction):
         if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
             # start mining block
-            q = Queue()
-            self.mining_thread = util.StoppableThread(target=self.chain.proof_of_work, args=(q,)).start()
-            self.send_block(q.get())
+            self.block_queue = Queue()
+            self.mining_thread = proof_of_work.ProofOfWork(self.chain, self.block_queue)
+            self.mining_thread.start()
+            val = self.block_queue.get()
+            if val != "STOP":
+                self.send_block(val)
 
 
     def send_block(self, block):
@@ -411,6 +415,7 @@ class Node:
 
     def recv_block(self, block):
         util.printts("Node %d: receiving block" % self.ident)
+        self.block_queue.put("STOP")
         if self.mining_thread and self.mining_thread.is_alive():
             util.printts("Node %d: stopping and joining mining thread" % self.ident)
             self.mining_thread.stop()
