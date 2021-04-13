@@ -50,7 +50,5 @@ class Blockchain:
         # return -1 to indicate an invalid transaction
         self.unconfirmed.append(transaction)
 
-        # TODO: the calling program will need to spawn a thread
-        # to run the proof of work routine if return value is 1
         return len(self.unconfirmed)
 
