@@ -50,22 +50,5 @@ class Blockchain:
         # return -1 to indicate an invalid transaction
         self.unconfirmed.append(transaction)
 
-        # TODO: the calling program will need to spawn a thread
-        # to run the proof of work routine if return value is 1
         return len(self.unconfirmed)
-
-    def proof_of_work(self, q, difficulty=5):
-        unconfirmed_block = Block(self.unconfirmed, self.blocks[-1].this_hash.hexdigest())
-        
-        # keep incrementing nonce until we "crack" the hash
-        while True:
-            unconfirmed_block.this_hash = unconfirmed_block.hash()
-            if int(unconfirmed_block.this_hash.hexdigest()[:difficulty], 16) <= 0:
-                break
-            unconfirmed_block.nonce += 1
-
-        print("number of rounds to complete pow: %s" % unconfirmed_block.nonce)
-
-        # push the unconfirmed block onto the synchronized queue
-        q.put(unconfirmed_block)
 

@@ -60,7 +60,7 @@ class NodeShell(cmd.Cmd):
     def do_chain(self, line):
         print(n.chain.serialize())
     
-    def do_transaction(self, line):
+    def do_send(self, line):
         "Sending transaction"
         n.send_transaction(*util.parse(line))
 
