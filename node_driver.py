@@ -54,8 +54,8 @@ class NodeShell(cmd.Cmd):
 
     def do_peers(self, line):
         "Show peers"
-        for p in n.peers:
-            print(p)
+        for p in n.peers.values():
+            print(p.serialize())
 
     def do_chain(self, line):
         print(n.chain.serialize())
