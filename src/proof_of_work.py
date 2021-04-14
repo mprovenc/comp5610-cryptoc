@@ -9,6 +9,7 @@ class ProofOfWork(Thread):
         self.q = q
         self.difficulty = difficulty
         super().__init__()
+        self.daemon = True
 
     def stop(self):
         self._stop_event.set()
