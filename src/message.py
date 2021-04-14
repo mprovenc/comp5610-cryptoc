@@ -169,63 +169,63 @@ class PeerBlock(Message):
         self.msg["block"] = block
 
 
-def node_keys(j):
+def __node_keys(j):
     return NodeKeys(j["public_key"], j["verify_key"])
 
 
-def tracker_ident(j):
+def __tracker_ident(j):
     return TrackerIdent(j["ident"], j["public_key"], j["verify_key"])
 
 
-def node_ident(j):
+def __node_ident(j):
     return NodeIdent()
 
 
-def node_port(j):
+def __node_port(j):
     return NodePort(j["port"])
 
 
-def tracker_peers(j):
+def __tracker_peers(j):
     return TrackerPeers(j["peers"])
 
 
-def peer_ident(j):
+def __peer_ident(j):
     return PeerIdent(j["ident"])
 
 
-def peer_accept(j):
+def __peer_accept(j):
     return PeerAccept()
 
 
-def peer_verify(j):
+def __peer_verify(j):
     return PeerVerify()
 
 
-def tracker_accept(j):
+def __tracker_accept(j):
     return TrackerAccept()
 
 
-def tracker_new_peer(j):
+def __tracker_new_peer(j):
     return TrackerNewPeer(j["peer"])
 
 
-def node_peers(j):
+def __node_peers(j):
     return NodePeers()
 
 
-def node_disconnect(j):
+def __node_disconnect(j):
     return NodeDisconnect()
 
 
-def tracker_chain(j):
+def __tracker_chain(j):
     return TrackerChain(j["blockchain"])
 
 
-def peer_transaction(j):
+def __peer_transaction(j):
     return PeerTransaction(j["transaction"])
 
 
-def peer_block(j):
+def __peer_block(j):
     return PeerBlock(j["block"])
 
 
@@ -236,21 +236,21 @@ def of_string(s):
     except Exception:
         return None
 
-    msgs = {Kind.NODE_KEYS: node_keys,
-            Kind.TRACKER_IDENT: tracker_ident,
-            Kind.NODE_IDENT: node_ident,
-            Kind.NODE_PORT: node_port,
-            Kind.TRACKER_PEERS: tracker_peers,
-            Kind.PEER_IDENT: peer_ident,
-            Kind.PEER_VERIFY: peer_verify,
-            Kind.PEER_ACCEPT: peer_accept,
-            Kind.TRACKER_ACCEPT: tracker_accept,
-            Kind.TRACKER_NEW_PEER: tracker_new_peer,
-            Kind.NODE_PEERS: node_peers,
-            Kind.NODE_DISCONNECT: node_disconnect,
-            Kind.TRACKER_CHAIN: tracker_chain,
-            Kind.PEER_TRANSACTION: peer_transaction,
-            Kind.PEER_BLOCK: peer_block}
+    msgs = {Kind.NODE_KEYS: __node_keys,
+            Kind.TRACKER_IDENT: __tracker_ident,
+            Kind.NODE_IDENT: __node_ident,
+            Kind.NODE_PORT: __node_port,
+            Kind.TRACKER_PEERS: __tracker_peers,
+            Kind.PEER_IDENT: __peer_ident,
+            Kind.PEER_VERIFY: __peer_verify,
+            Kind.PEER_ACCEPT: __peer_accept,
+            Kind.TRACKER_ACCEPT: __tracker_accept,
+            Kind.TRACKER_NEW_PEER: __tracker_new_peer,
+            Kind.NODE_PEERS: __node_peers,
+            Kind.NODE_DISCONNECT: __node_disconnect,
+            Kind.TRACKER_CHAIN: __tracker_chain,
+            Kind.PEER_TRANSACTION: __peer_transaction,
+            Kind.PEER_BLOCK: __peer_block}
 
     try:
         return msgs[k](j)
