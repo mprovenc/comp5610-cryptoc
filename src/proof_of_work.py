@@ -1,6 +1,7 @@
 from . import blockchain
 from threading import Thread, Event
 
+
 class ProofOfWork(Thread):
     def __init__(self, chain, q, difficulty=6):
         self._stop_event = Event()
@@ -16,14 +17,15 @@ class ProofOfWork(Thread):
         return self._stop_event.is_set()
 
     def run(self):
-        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, self.chain.blocks[-1].this_hash.hexdigest())
-
-        # keep incrementing nonce until we "crack" the hash or the thread gets stopped
+        h = self.chain.blocks[-1].this_hash.hexdigest()
+        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, h)
+        # keep incrementing nonce until we "crack"
+        # the hash or the thread gets stopped
         while True:
             if self.stopped():
                 return
-            unconfirmed_block.this_hash = unconfirmed_block.hash()
-            if int(unconfirmed_block.this_hash.hexdigest()[:self.difficulty], 16) <= 0:
+            h = unconfirmed_block.this_hash = unconfirmed_block.hash()
+            if int(h.hexdigest()[:self.difficulty], 16) <= 0:
                 break
             unconfirmed_block.nonce += 1
 

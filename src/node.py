@@ -163,10 +163,31 @@ class Node:
             # tell them our identifier
             message.PeerIdent(self.ident).send(conn)
 
+            enc_send_p = (p.public_key, self.key_pair)
             enc_recv_p = (p.verify_key, p.public_key, self.key_pair)
 
-            # wait for acceptance
+            def rej():
+                rejected.append((conn, p.ident))
+                print("Node %d: rejected by peer %d on %s:%d" %
+                      (self.ident, p.ident, p.host, p.port))
+
+            # wait for the peer to ask for verification
             reply = None
+            try:
+                reply = message.recv(conn, enc_recv_p)
+            except ValueError:
+                print("Node %d: connection with peer %d broken" %
+                      (self.ident, p.ident))
+
+            if reply and reply.kind == message.Kind.PEER_VERIFY:
+                print("Node %d: verifying identity with peer %d" %
+                      (self.ident, p.ident))
+                message.PeerVerify().send(conn, enc_send_p)
+            else:
+                rej()
+                continue
+
+            # wait for acceptance
             try:
                 reply = message.recv(conn, enc_recv_p)
             except ValueError:
@@ -179,9 +200,7 @@ class Node:
                       (self.ident, p.ident, p.host, p.port))
                 self.peer_sockets[p.ident] = conn
             else:
-                rejected.append((conn, ident))
-                print("Node %d: rejected by peer %d on %s:%d" %
-                      (self.ident, p.ident, p.host, p.port))
+                rej()
 
         # we can't communicate with peers that rejected us
         for conn, ident in rejected:
@@ -233,7 +252,29 @@ class Node:
             conn.close()
             return
 
-        enc_send = (self.peers[ident].public_key, self.key_pair)
+        pk = self.peers[ident].public_key
+        enc_send = (pk, self.key_pair)
+        enc_recv = (self.peers[ident].verify_key, pk, self.key_pair)
+
+        # the peer should verify their identity with us
+        # since we were provided by the tracker with their
+        # public key and verify key. this should let us
+        # know if they are who they say they are.
+        message.PeerVerify().send(conn, enc_send)
+
+        try:
+            msg = message.recv(conn, enc_recv)
+        except ValueError:
+            print("Node %d: connection %s:%d with peer %d broken" %
+                  (self.ident, addr[0], addr[1], ident))
+            conn.close()
+            return
+
+        if not msg or msg.kind != message.Kind.PEER_VERIFY:
+            print("Node %d: rejecting connection %s:%d from peer %d" %
+                  (self.ident, addr[0], addr[1], ident))
+            conn.close()
+            return
 
         # tell them we've accepted them
         message.PeerAccept().send(conn, enc_send)
@@ -356,7 +397,7 @@ class Node:
                 self.recv_transaction(msg.msg["transaction"])
             elif msg.kind == message.Kind.PEER_BLOCK:
                 util.printts("Node %d: received block from peer %s" %
-                      (self.ident, ident))
+                             (self.ident, ident))
                 self.recv_block(msg.msg["block"])
 
     def __remove_peer(self, conn, ident):
@@ -370,17 +411,15 @@ class Node:
 
         self.__unlock()
 
-
     def __broadcast_message(self, msg):
         util.printts("Node %d: sending a broadcast message" % self.ident)
         for ident, p in self.peers.items():
             enc = (p.public_key, self.key_pair)
             msg.send(self.peer_sockets[ident], enc)
 
-
     def send_transaction(self, receiver, amount):
         # serialize the transaction before broadcast
-        transaction = {'sender': self.ident, 
+        transaction = {'sender': self.ident,
                        'receiver': receiver,
                        'amount': amount}
         msg = message.PeerTransaction(transaction)
@@ -390,12 +429,12 @@ class Node:
         # make sure it is added to this node's list of unconfirmed transactions
         self.recv_transaction(transaction)
 
-
     def recv_transaction(self, transaction):
         if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
             # start mining block
             self.block_queue = Queue()
-            mining_thread = proof_of_work.ProofOfWork(self.chain, self.block_queue)
+            mining_thread = proof_of_work.ProofOfWork(self.chain,
+                                                      self.block_queue)
             mining_thread.start()
             val = self.block_queue.get()
             if val == "STOP":
@@ -404,9 +443,9 @@ class Node:
             else:
                 self.send_block(val)
 
-
     def send_block(self, block):
-        util.printts("Node %d: finished mining, sending the block..." % self.ident)
+        util.printts("Node %d: finished mining, sending the block..." %
+                     self.ident)
         msg = message.PeerBlock(block.serialize())
 
         # make sure it is added to this node's chain
@@ -414,8 +453,8 @@ class Node:
 
         self.__broadcast_message(msg)
 
-
     def recv_block(self, block):
         util.printts("Node %d: receiving block" % self.ident)
         self.block_queue.put("STOP")
-        self.chain.add_block(blockchain.Block(block["transactions"], block["previous_block_hash"]))
+        self.chain.add_block(blockchain.Block(block["transactions"],
+                                              block["previous_block_hash"]))

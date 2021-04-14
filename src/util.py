@@ -3,7 +3,7 @@ import socket
 
 
 def printts(*args, **kwargs):
-  print(datetime.now(), *args, **kwargs)
+    print(datetime.now(), *args, **kwargs)
 
 
 def newsock():
