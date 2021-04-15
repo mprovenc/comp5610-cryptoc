@@ -4,8 +4,7 @@ from threading import Thread, Event
 
 class ProofOfWork:
     def __init__(self, chain, q, difficulty=5):
-        self.thread = Thread(target=self.__run, args=(),
-                             daemon=False)
+        self.thread = Thread(target=self.__run, args=(), daemon=False)
         self._stop_event = Event()
         self.chain = chain
         self.q = q

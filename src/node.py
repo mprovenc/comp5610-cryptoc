@@ -233,8 +233,7 @@ class Node:
         if conn:
             self.peer_sockets[ident] = conn
 
-        thread = Thread(target=self.__recv_peer, args=(ident,),
-                        daemon=False)
+        thread = Thread(target=self.__recv_peer, args=(ident,), daemon=False)
         thread.start()
 
         self.__unlock()
@@ -453,27 +452,33 @@ class Node:
 
     def __recv_transaction(self, transaction):
         if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
-            util.printts("Node %d: starting mining thread" % self.ident)
+            # we need to perform the mining in a separate thread
+            # because it will wait for other nodes to finish mining
+            # as well. the thread that called us to start the mining
+            # cannot block while waiting for the queue to be filled.
+            thread = Thread(target=self.__mine, args=(), daemon=False)
+            thread.start()
 
-            # start mining block
-            self.block_queue = Queue()
-            worker = proof_of_work.ProofOfWork(self.chain, self.block_queue)
-            worker.thread.start()
+    def __mine(self):
+        util.printts("Node %d: starting mining thread" % self.ident)
 
-            val = self.block_queue.get()
-            if val == "STOP":
-                util.printts("Node %d: block was mined by another node" %
-                             self.ident)
+        # start mining block
+        self.block_queue = Queue()
+        worker = proof_of_work.ProofOfWork(self.chain, self.block_queue)
+        worker.thread.start()
 
-                worker.stop()
-                worker.thread.join()
-            else:
-                self.__send_block(val)
+        val = self.block_queue.get()
+        if val == "STOP":
+            util.printts("Node %d: block was mined by another node" %
+                         self.ident)
+
+            worker.stop()
+            worker.thread.join()
+        else:
+            util.printts("Node %d: finished mining" % self.ident)
+            self.__send_block(val)
 
     def __send_block(self, block):
-        util.printts("Node %d: finished mining, sending the block..." %
-                     self.ident)
-
         # make sure it is added to this node's chain
         s = block.serialize()
         self.__append_block(s)
