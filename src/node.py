@@ -389,8 +389,8 @@ class Node:
         conn.close()
 
         if ident in self.peers:
-            self.peers.pop(ident)
-            self.peer_sockets.pop(ident)
+            self.peers.pop(ident, None)
+            self.peer_sockets.pop(ident, None)
 
         self.__unlock()
 
