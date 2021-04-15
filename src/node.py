@@ -114,7 +114,7 @@ class Node:
             blocks.append(blockchain.Block(trans, h, t))
 
         self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
-        util.printts("Node %d: received chain")
+        util.printts("Node %d: received chain" % self.ident)
 
         # reply with the port we want to listen on
         message.NodePort(self.addr[1]).send(self.tracker_socket, enc_send)
@@ -476,12 +476,13 @@ class Node:
 
         # make sure it is added to this node's chain
         s = block.serialize()
-        self.__recv_block(s)
+        self.__append_block(s)
         self.__broadcast_message(message.PeerBlock(s))
 
     def __recv_block(self, block):
-        util.printts("Node %d: receiving block" % self.ident)
-
         self.block_queue.put("STOP")
+        self.__append_block(block)
+
+    def __append_block(self, block):
         self.chain.add_block(blockchain.Block(block["transactions"],
                                               block["previous_block_hash"]))

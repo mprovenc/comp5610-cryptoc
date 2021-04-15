@@ -27,9 +27,11 @@ class ProofOfWork:
         while True:
             if self.stopped():
                 return
+
             h = unconfirmed_block.this_hash = unconfirmed_block.hash()
             if int(h.hexdigest()[:self.difficulty], 16) <= 0:
                 break
+
             unconfirmed_block.nonce += 1
             n += 1
 
