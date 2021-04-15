@@ -386,7 +386,8 @@ class Node:
     def __remove_peer(self, conn, ident):
         self.__lock()
 
-        conn.close()
+        if conn:
+            conn.close()
 
         if ident in self.peers:
             self.peers.pop(ident, None)
@@ -396,9 +397,20 @@ class Node:
 
     def __broadcast_message(self, msg):
         util.printts("Node %d: sending a broadcast message" % self.ident)
+
+        invalid = []
         for ident, p in self.peers.items():
-            enc = (p.public_key, self.key_pair)
-            msg.send(self.peer_sockets[ident], enc)
+            conn = self.peer_sockets.get(ident, None)
+            if conn:
+                msg.send(conn, enc=(p.public_key, self.key_pair))
+            else:
+                invalid.append(ident)
+
+        # we may have tried to send to peers that we never
+        # established a connection with, so it's best to
+        # remove them once we attempt to send them a message.
+        for ident in invalid:
+            self.__remove_peer(None, ident)
 
     def send_transaction(self, receiver, amount):
         # serialize the transaction before broadcast
