@@ -32,6 +32,7 @@ class Tracker:
         conn, addr = self.socket.accept()
         print("Tracker: opened connection %s:%d" % (addr[0], addr[1]))
 
+        ident = None
         try:
             initial = message.recv(conn)
             assert(initial and initial.kind == message.Kind.NODE_KEYS)
@@ -112,7 +113,7 @@ class Tracker:
 
         except ValueError:
             print("Tracker: connection %s:%d broken" % (addr[0], addr[1]))
-            conn.close()
+            self.__remove_node(conn, ident)
 
     def stop(self):
         print("Tracker: shutting down")
@@ -153,8 +154,8 @@ class Tracker:
 
         conn.close()
 
-        if ident in self.nodes:
-            self.nodes.pop(ident)
-            self.node_sockets.pop(ident)
+        if ident is not None and ident in self.nodes:
+            self.nodes.pop(ident, None)
+            self.node_sockets.pop(ident, None)
 
         self.__unlock()
