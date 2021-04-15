@@ -22,15 +22,15 @@ def sig_handler(signum, frame):
     if signum == signal.SIGCHLD:
         return
 
-    print("Node: received signal %d, going down" % signum)
+    util.printts("Node: received signal %d, going down" % signum)
     n.disconnect()
     sys.exit(signum)
 
 
 # accept new connections from peers
 def accepter():
-    while True:
-        n.accept()
+    while n.accept():
+        continue
 
 
 # receive new messages from the tracker
@@ -58,6 +58,7 @@ class NodeShell(cmd.Cmd):
             print(p.serialize())
 
     def do_chain(self, line):
+        "Show chain"
         print(n.chain.serialize())
 
     def do_send(self, line):
@@ -74,8 +75,9 @@ class NodeShell(cmd.Cmd):
 def main():
     def check_port(port, name):
         if port < 0 or port > 65535:
-            print("Node: invalid %s port %d (must be between 0 and 65535)" %
-                  (name, port))
+            util.printts("Node: invalid %s port %d "
+                         "(must be between 0 and 65535)" %
+                         (name, port))
             sys.exit(1)
 
     # do some sanity checks
@@ -84,7 +86,7 @@ def main():
     port = int(sys.argv[2])
     check_port(port, "listening")
     if util.is_port_in_use(port):
-        print("Node: port %d is already in use" % port)
+        util.printts("Node: port %d is already in use" % port)
         sys.exit(1)
 
     # create our node
@@ -98,12 +100,12 @@ def main():
         connected = False
 
     if not connected:
-        print("Node: failed to connect to tracker on %s:%d" %
-              (n.tracker_addr[0], n.tracker_addr[1]))
+        util.printts("Node: failed to connect to tracker on %s:%d" %
+                     (n.tracker_addr[0], n.tracker_addr[1]))
         sys.exit(1)
 
     def new_thread(f):
-        thread = Thread(target=f, daemon=True)
+        thread = Thread(target=f, daemon=False)
         thread.start()
         return thread
 

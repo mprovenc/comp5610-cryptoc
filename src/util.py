@@ -10,6 +10,14 @@ def newsock():
     return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
+def closesock(sock):
+    if not sock:
+        return
+
+    sock.shutdown(socket.SHUT_RDWR)
+    sock.close()
+
+
 def is_port_in_use(port):
     with newsock() as s:
         return s.connect_ex(("localhost", port)) == 0
