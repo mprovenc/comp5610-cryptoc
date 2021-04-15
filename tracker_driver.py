@@ -2,6 +2,7 @@
 
 import signal
 import sys
+import cmd
 from threading import Thread
 from src import tracker, util
 
@@ -20,6 +21,31 @@ def sig_handler(signum, frame):
 def accepter():
     while True:
         t.accept()
+
+
+class TrackerShell(cmd.Cmd):
+    prompt = "> "
+
+    def do_stop(self, line):
+        "Stop the tracker."
+        t.stop()
+        return True
+
+    def do_EOF(self, line):
+        "End-of-file; stops the tracker."
+        t.stop()
+        return True
+
+    def do_nodes(self, line):
+        "Show peers"
+        for n in t.nodes.value():
+            print(n.serialize())
+
+    def do_chain(self, line):
+        print(t.chain.serialize())
+
+    def emptyline(self):
+        pass
 
 
 def main():
@@ -45,8 +71,9 @@ def main():
         return thread
 
     # this is our only thread which will run forever
-    a = new_thread(accepter)
-    a.join()
+    new_thread(accepter)
+
+    TrackerShell().cmdloop()
 
 
 if __name__ == "__main__":
