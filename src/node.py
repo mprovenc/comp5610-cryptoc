@@ -118,6 +118,25 @@ class Node:
         # reply with the port we want to listen on
         message.NodePort(self.addr[1]).send(self.tracker_socket, enc_send)
 
+        msg = self.__recv_expect(self.tracker_socket,
+                                 message.Kind.NODE_LISTEN,
+                                 enc_recv)
+        if msg is False:
+            print("Node %d: failed to receive NODE_LISTEN" % self.ident)
+            return False
+
+        # start listening on our desired port
+        self.socket = util.newsock()
+        self.socket.bind(self.addr)
+        print("Node %d: bind to %s:%d" %
+              (self.ident, self.addr[0], self.addr[1]))
+        self.socket.listen(5)
+        print("Node %d: listen on %s:%d" %
+              (self.ident, self.addr[0], self.addr[1]))
+
+        # tell the tracker we've started listening
+        message.NodeListen().send(self.tracker_socket, enc_send)
+
         # receive our peers
         msg = self.__recv_expect(self.tracker_socket,
                                  message.Kind.TRACKER_PEERS,
@@ -141,7 +160,7 @@ class Node:
         # tell the tracker we received the peers
         message.NodePeers().send(self.tracker_socket, enc_send)
 
-        # wait to start listening
+        # wait for acceptance
         msg = self.__recv_expect(self.tracker_socket,
                                  message.Kind.TRACKER_ACCEPT,
                                  enc_recv)
@@ -150,15 +169,6 @@ class Node:
             return False
 
         print("Node %d: accepted by tracker" % self.ident)
-
-        # start listening on our desired port
-        self.socket = util.newsock()
-        self.socket.bind(self.addr)
-        print("Node %d: bind to %s:%d" %
-              (self.ident, self.addr[0], self.addr[1]))
-        self.socket.listen(5)
-        print("Node %d: listen on %s:%d" %
-              (self.ident, self.addr[0], self.addr[1]))
 
         # connect with all of our peers
         rejected = []
@@ -226,6 +236,9 @@ class Node:
         self.__unlock()
 
     def accept(self):
+        if not self.connected:
+            return
+
         conn, addr = self.socket.accept()
         print("Node %d: opened connection %s:%d" %
               (self.ident, addr[0], addr[1]))
@@ -339,8 +352,9 @@ class Node:
             do_send(self.tracker_socket)
 
         for p in self.peers.values():
-            conn = self.peer_sockets[p.ident]
-            do_send(conn, (p.public_key, self.key_pair))
+            conn = self.peer_sockets.get(p.ident, None)
+            if conn:
+                do_send(conn, (p.public_key, self.key_pair))
 
         self.tracker_socket.close()
         self.peers = {}

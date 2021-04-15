@@ -20,6 +20,9 @@ class Kind(IntEnum):
     # on for peer connections
     NODE_PORT = auto()
 
+    # tracker/node exchange the OK to listen on that port
+    NODE_LISTEN = auto()
+
     # tracker has officially registered the client and will
     # now inform the node of its peers
     TRACKER_PEERS = auto()
@@ -114,6 +117,11 @@ class NodePort(Message):
         self.msg["port"] = port
 
 
+class NodeListen(Message):
+    def __init__(self):
+        super().__init__(Kind.NODE_LISTEN)
+
+
 class TrackerPeers(Message):
     def __init__(self, peers):
         super().__init__(Kind.TRACKER_PEERS)
@@ -185,6 +193,10 @@ def __node_port(j):
     return NodePort(j["port"])
 
 
+def __node_listen(j):
+    return NodeListen()
+
+
 def __tracker_peers(j):
     return TrackerPeers(j["peers"])
 
@@ -240,6 +252,7 @@ def of_string(s):
             Kind.TRACKER_IDENT: __tracker_ident,
             Kind.NODE_IDENT: __node_ident,
             Kind.NODE_PORT: __node_port,
+            Kind.NODE_LISTEN: __node_listen,
             Kind.TRACKER_PEERS: __tracker_peers,
             Kind.PEER_IDENT: __peer_ident,
             Kind.PEER_VERIFY: __peer_verify,

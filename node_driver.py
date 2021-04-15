@@ -64,6 +64,12 @@ class NodeShell(cmd.Cmd):
         "Sending transaction"
         n.send_transaction(*util.parse(line))
 
+    def postcmd(self, stop, line):
+        return not n.connected
+
+    def emptyline(self):
+        pass
+
 
 def main():
     def check_port(port, name):
@@ -86,7 +92,12 @@ def main():
     n = node.Node("localhost", tracker_port, port)
 
     # establish a connection with the tracker
-    if not n.connect():
+    try:
+        connected = n.connect()
+    except Exception:
+        connected = False
+
+    if not connected:
         print("Node: failed to connect to tracker on %s:%d" %
               (n.tracker_addr[0], n.tracker_addr[1]))
         sys.exit(1)

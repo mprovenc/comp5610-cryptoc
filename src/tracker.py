@@ -52,7 +52,8 @@ class Tracker:
 
             reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_IDENT)
-            print("Tracker: node %d received identifier" % ident)
+            print("Tracker: node %d (connection %s:%d) received identifier" %
+                  (ident, addr[0], addr[1]))
 
             # send the most current blockchain
             message.TrackerChain(self.chain.serialize()).send(conn, enc_send)
@@ -61,8 +62,15 @@ class Tracker:
             reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_PORT)
             port = reply.msg["port"]
-            print("Tracker: connection %s:%d will listen on port %d" %
-                  (addr[0], addr[1], port))
+            print("Tracker: node %d will listen on port %d" % (ident, port))
+
+            # tell the node that it must start listening
+            message.NodeListen().send(conn, enc_send)
+
+            reply = message.recv(conn, enc_recv)
+            assert(reply and reply.kind == message.Kind.NODE_LISTEN)
+            print("Tracker: node %d is ready to listen on port %d" %
+                  (ident, port))
 
             # inform the node of its peers
             peers = []
