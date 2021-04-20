@@ -61,11 +61,9 @@ class Blockchain:
         return True
 
 
-    def add_unconfirmed_transaction(self, transaction, previous_transactions):
-        # TODO: check to make sure that sender has enough balance
-        # for transaction by looking at previous_transactions
-        # return -1 to indicate an invalid transaction
-        self.unconfirmed.append(transaction)
-
-        return len(self.unconfirmed)
-
+    def add_unconfirmed_transaction(self, transaction):
+        return_code = -1
+        if check_transaction_validity(transaction):
+            self.unconfirmed.append(transaction)
+            return_code = len(self.unconfirmed)
+        return return_code
