@@ -63,7 +63,7 @@ class Blockchain:
 
     def add_unconfirmed_transaction(self, transaction):
         return_code = -1
-        if check_transaction_validity(transaction):
+        if self.check_transaction_validity(transaction):
             self.unconfirmed.append(transaction)
             return_code = len(self.unconfirmed)
         return return_code
