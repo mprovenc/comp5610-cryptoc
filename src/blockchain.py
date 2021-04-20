@@ -44,6 +44,23 @@ class Blockchain:
         self.unconfirmed = []
 
 
+    def check_transaction_validity(self, tran2check):
+        """ checks the blockchain to make sure that a transaction to be added is valid """
+        sender = tran2check["sender"]
+        sender_balance = 0
+
+        for block in self.blocks:
+            for transaction in self.transactions
+                if transaction["sender"] == sender:
+                    balance -= transaction["amount"]
+                elif transaction["receiver"] == sender:
+                    balance += transaction["amount"]
+
+        if sender_balance < tran2check["amount"]:
+            return False
+        return True
+
+
     def add_unconfirmed_transaction(self, transaction, previous_transactions):
         # TODO: check to make sure that sender has enough balance
         # for transaction by looking at previous_transactions
