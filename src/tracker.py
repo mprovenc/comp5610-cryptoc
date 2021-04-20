@@ -24,14 +24,22 @@ class Tracker:
     def start(self):
         self.socket = util.newsock()
         self.socket.bind(self.addr)
-        print("Tracker: bind to %s:%d" % (self.addr[0], self.addr[1]))
+        util.printts("Tracker: bind to %s:%d" % (self.addr[0], self.addr[1]))
         self.socket.listen(5)
-        print("Tracker: listen on %s:%d" % (self.addr[0], self.addr[1]))
+        util.printts("Tracker: listen on %s:%d" % (self.addr[0], self.addr[1]))
 
     def accept(self):
-        conn, addr = self.socket.accept()
-        print("Tracker: opened connection %s:%d" % (addr[0], addr[1]))
+        if not self.socket:
+            return False
 
+        try:
+            conn, addr = self.socket.accept()
+            util.printts("Tracker: opened connection %s:%d" %
+                         (addr[0], addr[1]))
+        except OSError:
+            return False
+
+        ident = None
         try:
             initial = message.recv(conn)
             assert(initial and initial.kind == message.Kind.NODE_KEYS)
@@ -51,7 +59,9 @@ class Tracker:
 
             reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_IDENT)
-            print("Tracker: node %d received identifier" % ident)
+            util.printts("Tracker: node %d (connection %s:%d) "
+                         "received identifier" %
+                         (ident, addr[0], addr[1]))
 
             # send the most current blockchain
             message.TrackerChain(self.chain.serialize()).send(conn, enc_send)
@@ -60,8 +70,16 @@ class Tracker:
             reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_PORT)
             port = reply.msg["port"]
-            print("Tracker: connection %s:%d will listen on port %d" %
-                  (addr[0], addr[1], port))
+            util.printts("Tracker: node %d will listen on port %d" %
+                         (ident, port))
+
+            # tell the node that it must start listening
+            message.NodeListen().send(conn, enc_send)
+
+            reply = message.recv(conn, enc_recv)
+            assert(reply and reply.kind == message.Kind.NODE_LISTEN)
+            util.printts("Tracker: node %d is ready to listen on port %d" %
+                         (ident, port))
 
             # inform the node of its peers
             peers = []
@@ -72,7 +90,7 @@ class Tracker:
             # wait for the node to inform us that it received the peers
             reply = message.recv(conn, enc_recv)
             assert(reply and reply.kind == message.Kind.NODE_PEERS)
-            print("Tracker: node %d accepted peers" % ident)
+            util.printts("Tracker: node %d accepted peers" % ident)
 
             # inform existing nodes of their new peer
             new_peer = peer.Peer(addr[0], ident, port, public_key, verify_key)
@@ -103,40 +121,50 @@ class Tracker:
 
             # start a thread to listen for node messages
             thread = Thread(target=self.__recv_node, args=(ident,),
-                            daemon=True)
+                            daemon=False)
             thread.start()
 
         except AssertionError:
-            print("Tracker: rejecting connection %s:%d" % (addr[0], addr[1]))
-            conn.close()
+            util.printts("Tracker: rejecting connection %s:%d" %
+                         (addr[0], addr[1]))
+            util.closesock(conn)
 
         except ValueError:
-            print("Tracker: connection %s:%d broken" % (addr[0], addr[1]))
-            conn.close()
+            util.printts("Tracker: connection %s:%d broken" %
+                         (addr[0], addr[1]))
+            self.__remove_node(conn, ident)
+
+        return True
 
     def stop(self):
-        print("Tracker: shutting down")
+        self.__lock()
+
+        util.printts("Tracker: shutting down")
 
         for conn in self.node_sockets.values():
-            conn.close()
+            util.closesock(conn)
 
-        self.socket.close()
+        util.closesock(self.socket)
+        self.socket = None
         self.nodes = {}
         self.node_sockets = {}
 
+        self.__unlock()
+
     def __recv_node(self, ident):
-        print("Tracker: monitoring messages from node %d" % ident)
+        util.printts("Tracker: monitoring messages from node %d" % ident)
 
         conn = self.node_sockets[ident]
         n = self.nodes[ident]
         enc_recv = (n.verify_key, n.public_key, self.key_pair)
+        msg = None
 
         while True:
-            msg = None
             try:
                 msg = message.recv(conn, enc_recv)
             except ValueError:
-                print("Tracker: connection with node %d was broken" % ident)
+                util.printts("Tracker: connection with node %d was broken" %
+                             ident)
                 self.__remove_node(conn, ident)
                 break
 
@@ -144,17 +172,17 @@ class Tracker:
                 continue
 
             if msg.kind == message.Kind.NODE_DISCONNECT:
-                print("Tracker: node %d is disconnecting" % ident)
+                util.printts("Tracker: node %d is disconnecting" % ident)
                 self.__remove_node(conn, ident)
                 break
 
     def __remove_node(self, conn, ident):
         self.__lock()
 
-        conn.close()
+        util.closesock(conn)
 
-        if ident in self.nodes:
-            self.nodes.pop(ident)
-            self.node_sockets.pop(ident)
+        if ident is not None and ident in self.nodes:
+            self.nodes.pop(ident, None)
+            self.node_sockets.pop(ident, None)
 
         self.__unlock()

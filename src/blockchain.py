@@ -1,6 +1,5 @@
 import json
 import datetime
-import time
 from random import randint
 from hashlib import sha256
 
@@ -9,7 +8,7 @@ class Block:
     def __init__(self, transactions, previous_block_hash,
                  timestamp=datetime.datetime.now(), nonce=randint(0, 10000)):
         self.transactions = transactions
-        self.previous_block_hash = previous_block_hash # hex format
+        self.previous_block_hash = previous_block_hash  # hex format
         self.timestamp = timestamp
 
         self.nonce = nonce
@@ -23,6 +22,7 @@ class Block:
 
     def hash(self):
         return sha256(json.dumps(self.serialize()).encode('utf-8'))
+
 
 class Blockchain:
     def __init__(self, blocks=[Block([], '')], unconfirmed=[]):
@@ -43,7 +43,6 @@ class Blockchain:
         self.blocks.append(block)
         self.unconfirmed = []
 
-
     def check_transaction_validity(self, tran2check):
         """ checks the blockchain to make sure that a transaction to be added is valid """
         sender = tran2check["sender"]
@@ -59,7 +58,6 @@ class Blockchain:
         if sender_balance < tran2check["amount"]:
             return False
         return True
-
 
     def add_unconfirmed_transaction(self, transaction):
         return_code = -1

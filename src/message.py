@@ -20,12 +20,18 @@ class Kind(IntEnum):
     # on for peer connections
     NODE_PORT = auto()
 
+    # tracker/node exchange the OK to listen on that port
+    NODE_LISTEN = auto()
+
     # tracker has officially registered the client and will
     # now inform the node of its peers
     TRACKER_PEERS = auto()
 
     # node will tell its peer what identifier it is
     PEER_IDENT = auto()
+
+    # node expects the peer to verify their identity
+    PEER_VERIFY = auto()
 
     # peer has accepted node
     PEER_ACCEPT = auto()
@@ -111,6 +117,11 @@ class NodePort(Message):
         self.msg["port"] = port
 
 
+class NodeListen(Message):
+    def __init__(self):
+        super().__init__(Kind.NODE_LISTEN)
+
+
 class TrackerPeers(Message):
     def __init__(self, peers):
         super().__init__(Kind.TRACKER_PEERS)
@@ -121,6 +132,11 @@ class PeerIdent(Message):
     def __init__(self, ident):
         super().__init__(Kind.PEER_IDENT)
         self.msg["ident"] = ident
+
+
+class PeerVerify(Message):
+    def __init__(self):
+        super().__init__(Kind.PEER_VERIFY)
 
 
 class PeerAccept(Message):
@@ -161,42 +177,96 @@ class PeerBlock(Message):
         self.msg["block"] = block
 
 
+def __node_keys(j):
+    return NodeKeys(j["public_key"], j["verify_key"])
+
+
+def __tracker_ident(j):
+    return TrackerIdent(j["ident"], j["public_key"], j["verify_key"])
+
+
+def __node_ident(j):
+    return NodeIdent()
+
+
+def __node_port(j):
+    return NodePort(j["port"])
+
+
+def __node_listen(j):
+    return NodeListen()
+
+
+def __tracker_peers(j):
+    return TrackerPeers(j["peers"])
+
+
+def __peer_ident(j):
+    return PeerIdent(j["ident"])
+
+
+def __peer_accept(j):
+    return PeerAccept()
+
+
+def __peer_verify(j):
+    return PeerVerify()
+
+
+def __tracker_accept(j):
+    return TrackerAccept()
+
+
+def __tracker_new_peer(j):
+    return TrackerNewPeer(j["peer"])
+
+
+def __node_peers(j):
+    return NodePeers()
+
+
+def __node_disconnect(j):
+    return NodeDisconnect()
+
+
+def __tracker_chain(j):
+    return TrackerChain(j["blockchain"])
+
+
+def __peer_transaction(j):
+    return PeerTransaction(j["transaction"])
+
+
+def __peer_block(j):
+    return PeerBlock(j["block"])
+
+
 def of_string(s):
     try:
         j = json.loads(s)
         k = j["kind"]
-        if k == Kind.NODE_KEYS:
-            return NodeKeys(j["public_key"], j["verify_key"])
-        elif k == Kind.TRACKER_IDENT:
-            return TrackerIdent(j["ident"],
-                                j["public_key"],
-                                j["verify_key"])
-        elif k == Kind.NODE_IDENT:
-            return NodeIdent()
-        elif k == Kind.NODE_PORT:
-            return NodePort(j["port"])
-        elif k == Kind.TRACKER_PEERS:
-            return TrackerPeers(j["peers"])
-        elif k == Kind.PEER_IDENT:
-            return PeerIdent(j["ident"])
-        elif k == Kind.PEER_ACCEPT:
-            return PeerAccept()
-        elif k == Kind.TRACKER_ACCEPT:
-            return TrackerAccept()
-        elif k == Kind.TRACKER_NEW_PEER:
-            return TrackerNewPeer(j["peer"])
-        elif k == Kind.NODE_PEERS:
-            return NodePeers()
-        elif k == Kind.NODE_DISCONNECT:
-            return NodeDisconnect()
-        elif k == Kind.TRACKER_CHAIN:
-            return TrackerChain(j["blockchain"])
-        elif k == Kind.PEER_TRANSACTION:
-            return PeerTransaction(j["transaction"])
-        elif k == Kind.PEER_BLOCK:
-            return PeerBlock(j["block"])
-        else:
-            return None
+    except Exception:
+        return None
+
+    msgs = {Kind.NODE_KEYS: __node_keys,
+            Kind.TRACKER_IDENT: __tracker_ident,
+            Kind.NODE_IDENT: __node_ident,
+            Kind.NODE_PORT: __node_port,
+            Kind.NODE_LISTEN: __node_listen,
+            Kind.TRACKER_PEERS: __tracker_peers,
+            Kind.PEER_IDENT: __peer_ident,
+            Kind.PEER_VERIFY: __peer_verify,
+            Kind.PEER_ACCEPT: __peer_accept,
+            Kind.TRACKER_ACCEPT: __tracker_accept,
+            Kind.TRACKER_NEW_PEER: __tracker_new_peer,
+            Kind.NODE_PEERS: __node_peers,
+            Kind.NODE_DISCONNECT: __node_disconnect,
+            Kind.TRACKER_CHAIN: __tracker_chain,
+            Kind.PEER_TRANSACTION: __peer_transaction,
+            Kind.PEER_BLOCK: __peer_block}
+
+    try:
+        return msgs[k](j)
     except Exception:
         return None
 

@@ -1,8 +1,10 @@
-from . import blockchain
+from . import blockchain, util
 from threading import Thread, Event
 
-class ProofOfWork(Thread):
-    def __init__(self, chain, q, difficulty=6):
+
+class ProofOfWork:
+    def __init__(self, chain, q, difficulty=5):
+        self.thread = Thread(target=self.__run, args=(), daemon=False)
         self._stop_event = Event()
         self.chain = chain
         self.q = q
@@ -15,19 +17,24 @@ class ProofOfWork(Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def run(self):
-        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, self.chain.blocks[-1].this_hash.hexdigest())
-
-        # keep incrementing nonce until we "crack" the hash or the thread gets stopped
+    def __run(self):
+        h = self.chain.blocks[-1].this_hash.hexdigest()
+        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, h)
+        # keep incrementing nonce until we "crack"
+        # the hash or the thread gets stopped
+        n = 0
         while True:
             if self.stopped():
                 return
-            unconfirmed_block.this_hash = unconfirmed_block.hash()
-            if int(unconfirmed_block.this_hash.hexdigest()[:self.difficulty], 16) <= 0:
-                break
-            unconfirmed_block.nonce += 1
 
-        print("number of rounds to complete pow: %s" % unconfirmed_block.nonce)
+            h = unconfirmed_block.this_hash = unconfirmed_block.hash()
+            if int(h.hexdigest()[:self.difficulty], 16) <= 0:
+                break
+
+            unconfirmed_block.nonce += 1
+            n += 1
+
+        util.printts("Number of rounds to complete pow: %d" % n)
 
         # push the unconfirmed block onto the synchronized queue
         self.q.put(unconfirmed_block)
