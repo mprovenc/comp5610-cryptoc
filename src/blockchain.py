@@ -44,12 +44,12 @@ class Blockchain:
         self.unconfirmed = []
 
     def check_transaction_validity(self, tran2check):
-        """ checks the blockchain to make sure that a transaction to be added is valid """
+        """ check blockchain to make sure transaction to be added is valid """
         sender = tran2check["sender"]
         sender_balance = 0
 
         for block in self.blocks:
-            for transaction in self.transactions
+            for transaction in self.transactions:
                 if transaction["sender"] == sender:
                     balance -= transaction["amount"]
                 elif transaction["receiver"] == sender:
