@@ -14,8 +14,11 @@ def closesock(sock):
     if not sock:
         return
 
-    sock.shutdown(socket.SHUT_RDWR)
-    sock.close()
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+        sock.close()
+    except OSError:
+        return
 
 
 def is_port_in_use(port):

@@ -451,13 +451,17 @@ class Node:
         self.__recv_transaction(transaction)
 
     def __recv_transaction(self, transaction):
-        if self.chain.add_unconfirmed_transaction(transaction, []) == 3:
-            # we need to perform the mining in a separate thread
-            # because it will wait for other nodes to finish mining
-            # as well. the thread that called us to start the mining
-            # cannot block while waiting for the queue to be filled.
-            thread = Thread(target=self.__mine, args=(), daemon=False)
-            thread.start()
+        if not self.chain.add_unconfirmed_transaction(transaction):
+            util.printts("Node %d: received invalid transaction from peer %d" %
+                         (self.ident, transaction["sender"]))
+            return
+
+        # we need to perform the mining in a separate thread
+        # because it will wait for other nodes to finish mining
+        # as well. the thread that called us to start the mining
+        # cannot block while waiting for the queue to be filled.
+        thread = Thread(target=self.__mine, args=(), daemon=False)
+        thread.start()
 
     def __mine(self):
         util.printts("Node %d: starting mining thread" % self.ident)

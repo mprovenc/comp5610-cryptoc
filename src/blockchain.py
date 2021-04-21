@@ -49,19 +49,18 @@ class Blockchain:
         sender_balance = 0
 
         for block in self.blocks:
-            for transaction in self.transactions:
+            for transaction in block.transactions:
                 if transaction["sender"] == sender:
-                    balance -= transaction["amount"]
+                    sender_balance -= transaction["amount"]
                 elif transaction["receiver"] == sender:
-                    balance += transaction["amount"]
+                    sender_balance += transaction["amount"]
 
-        if sender_balance < tran2check["amount"]:
-            return False
-        return True
+        return sender_balance >= tran2check["amount"]
 
     def add_unconfirmed_transaction(self, transaction):
-        return_code = -1
-        if self.check_transaction_validity(transaction):
+        valid = self.check_transaction_validity(transaction)
+
+        if valid:
             self.unconfirmed.append(transaction)
-            return_code = len(self.unconfirmed)
-        return return_code
+
+        return valid
