@@ -105,15 +105,7 @@ class Node:
                          self.ident)
             return False
 
-        chain = msg.msg["blockchain"]
-        blocks = []
-        for b in chain["blocks"]:
-            trans = b["transactions"]
-            h = b["previous_block_hash"]
-            t = util.deserialize_timestamp(b["timestamp"])
-            blocks.append(blockchain.Block(trans, h, t))
-
-        self.chain = blockchain.Blockchain(blocks, chain["unconfirmed"])
+        self.chain = blockchain.Blockchain.by_serialized(msg.msg["blockchain"])
         util.printts("Node %d: received chain" % self.ident)
 
         # reply with the port we want to listen on
@@ -494,4 +486,5 @@ class Node:
 
     def __append_block(self, block):
         self.chain.add_block(blockchain.Block(block["transactions"],
-                                              block["previous_block_hash"]))
+                                              block["previous_block_hash"],
+                                              None))

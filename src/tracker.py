@@ -1,15 +1,17 @@
 from threading import Thread, Lock
 from . import blockchain, message, peer, util, pkc
 
+INITIAL_BALANCE = 10
+
 
 class Tracker:
     def __init__(self, port, hostname="localhost"):
         self.addr = (hostname, port)
         self.nodes = {}
         self.node_sockets = {}
-        self.ident_count = 0
+        self.ident_count = 1
         self.lock = Lock()
-        self.chain = blockchain.Blockchain()
+        self.chain = blockchain.Blockchain.by_tracker(INITIAL_BALANCE)
         self.key_pair = pkc.KeyPair()
 
     def __unlock(self):

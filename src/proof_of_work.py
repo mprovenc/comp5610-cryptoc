@@ -19,7 +19,7 @@ class ProofOfWork:
 
     def __run(self):
         h = self.chain.blocks[-1].this_hash.hexdigest()
-        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, h)
+        unconfirmed_block = blockchain.Block(self.chain.unconfirmed, h, None)
         # keep incrementing nonce until we "crack"
         # the hash or the thread gets stopped
         n = 0
