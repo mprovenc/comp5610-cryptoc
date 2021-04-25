@@ -65,6 +65,10 @@ class NodeShell(cmd.Cmd):
         "Sending transaction"
         n.send_transaction(*util.parse(line))
 
+    def do_balance(self, line):
+        "Display balance"
+        print(n.balance())
+
     def postcmd(self, stop, line):
         return not n.connected
 

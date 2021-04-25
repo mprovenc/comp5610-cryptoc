@@ -5,6 +5,9 @@ from hashlib import sha256
 from . import util
 
 
+GENESIS_IDENT = -1
+
+
 class Block:
     def __init__(self, transactions, previous_block_hash,
                  timestamp, nonce=randint(0, 10000)):
@@ -41,7 +44,10 @@ class Blockchain:
 
     @staticmethod
     def get_genesis_block_list(initial_balance):
-        genesis_tran = {"sender": 0, "receiver": 0, "amount": 10}
+        genesis_tran = {"sender": GENESIS_IDENT,
+                        "receiver": GENESIS_IDENT,
+                        "amount": 10}
+
         return ([Block([genesis_tran], 0, None)], [])
 
     @staticmethod
@@ -75,11 +81,17 @@ class Blockchain:
 
         for block in self.blocks:
             for transaction in block.transactions:
-                if transaction["sender"] == sender:
-                    sender_balance -= transaction["amount"]
-                elif (transaction["receiver"] == sender or
-                      transaction["receiver"] == 0):
-                    sender_balance += transaction["amount"]
+                tsender = transaction["sender"]
+                treceiver = transaction["receiver"]
+                amount = transaction["amount"]
+
+                if tsender == GENESIS_IDENT and treceiver == GENESIS_IDENT:
+                    sender_balance += amount
+                elif tsender == sender:
+                    if treceiver != tsender:
+                        sender_balance -= amount
+                elif treceiver == sender:
+                    sender_balance += amount
 
         return sender_balance >= tran2check["amount"]
 

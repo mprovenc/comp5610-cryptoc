@@ -432,6 +432,10 @@ class Node:
             self.__remove_peer(None, ident)
 
     def send_transaction(self, receiver, amount):
+        # sending to ourselves is a no-op
+        if self.ident == receiver:
+            return
+
         # serialize the transaction before broadcast
         transaction = {'sender': self.ident,
                        'receiver': receiver,
@@ -488,3 +492,23 @@ class Node:
         self.chain.add_block(blockchain.Block(block["transactions"],
                                               block["previous_block_hash"],
                                               None))
+
+    def balance(self):
+        balance = 0
+        for block in self.chain.blocks:
+            for transaction in block.transactions:
+                sender = transaction["sender"]
+                receiver = transaction["receiver"]
+                amount = transaction["amount"]
+
+                if sender == blockchain.GENESIS_IDENT \
+                   and receiver == blockchain.GENESIS_IDENT:
+                    balance += amount
+                elif sender == self.ident:
+                    if receiver != self.ident:
+                        balance -= amount
+                else:
+                    if receiver == self.ident:
+                        balance += amount
+
+        return balance
