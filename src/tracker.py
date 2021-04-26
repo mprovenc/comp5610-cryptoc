@@ -177,6 +177,9 @@ class Tracker:
                 util.printts("Tracker: node %d is disconnecting" % ident)
                 self.__remove_node(conn, ident)
                 break
+            elif msg.kind == message.Kind.PEER_BLOCK:
+                util.printts("Tracker: received block from node %s" % ident)
+                self.__append_block(msg.msg["block"])
 
     def __remove_node(self, conn, ident):
         self.__lock()
@@ -188,3 +191,8 @@ class Tracker:
             self.node_sockets.pop(ident, None)
 
         self.__unlock()
+
+    def __append_block(self, block):
+        self.chain.add_block(blockchain.Block(block["transactions"],
+                                              block["previous_block_hash"],
+                                              None))

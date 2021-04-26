@@ -417,6 +417,10 @@ class Node:
     def __broadcast_message(self, msg):
         util.printts("Node %d: sending a broadcast message" % self.ident)
 
+        if msg.kind == message.Kind.PEER_BLOCK:
+            msg.send(self.tracker_socket,
+                     enc=(self.tracker_public_key, self.key_pair))
+
         invalid = []
         for ident, p in self.peers.items():
             conn = self.peer_sockets.get(ident, None)
