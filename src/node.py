@@ -217,10 +217,8 @@ class Node:
         for ident in self.peers.keys():
             self.__start_receiver(ident)
 
-        # we need to perform the mining in a separate thread
-        # because it will wait for other nodes to finish mining
-        # as well. the thread that called us to start the mining
-        # cannot block while waiting for the queue to be filled.
+        # wait for incoming unconfirmed transactions
+        # so that we can mine the current block
         waiter = Thread(target=self.__block_waiter, args=(), daemon=False)
         waiter.start()
 
@@ -495,10 +493,6 @@ class Node:
 
             thread = Thread(target=self.__mine, args=(), daemon=False)
             thread.start()
-
-            # we're going to take control of the condition variable
-            # so that any incoming transactions need to wait until
-            # after we finish mining the current block
             thread.join()
 
     def __mine(self):
