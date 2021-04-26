@@ -470,13 +470,14 @@ class Node:
         if not valid:
             util.printts("Node %d: received invalid transaction from peer %d" %
                          (self.ident, transaction["sender"]))
+        else:
+            # if the miner is running then it will have to start over
+            # since we just modified the list of unconfirmed transactions
+            if self.block_queue and self.block_queue.empty():
+                self.block_queue.put("STOP")
 
-        # if the miner is running then it will have to start over
-        # since we just modified the list of unconfirmed transactions
-        if self.block_queue and self.block_queue.empty():
-            self.block_queue.put("STOP")
+            self.cv.notify()
 
-        self.cv.notify()
         self.cv.release()
 
     def __block_waiter(self):
