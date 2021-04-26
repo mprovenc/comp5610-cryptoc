@@ -1,5 +1,5 @@
 from queue import Queue
-from threading import Thread, Lock
+from threading import Thread, Lock, Condition
 from . import blockchain, message, peer, util, pkc, proof_of_work
 
 
@@ -20,6 +20,7 @@ class Node:
         self.tracker_public_key = None
         self.tracker_verify_key = None
         self.block_queue = None
+        self.cv = Condition()
 
     def __unlock(self):
         try:
@@ -216,6 +217,13 @@ class Node:
         for ident in self.peers.keys():
             self.__start_receiver(ident)
 
+        # we need to perform the mining in a separate thread
+        # because it will wait for other nodes to finish mining
+        # as well. the thread that called us to start the mining
+        # cannot block while waiting for the queue to be filled.
+        waiter = Thread(target=self.__block_waiter, args=(), daemon=False)
+        waiter.start()
+
         return True
 
     def __start_receiver(self, ident, conn=None):
@@ -366,6 +374,13 @@ class Node:
         self.peer_sockets = {}
         self.connected = False
 
+        # block waiter might still be blocking on the
+        # condition variable. we need to unblock so
+        # the thread can gracefully terminate.
+        self.cv.acquire()
+        self.cv.notify()
+        self.cv.release()
+
         self.__unlock()
 
     def __recv_peer(self, ident):
@@ -451,17 +466,35 @@ class Node:
         self.__recv_transaction(transaction)
 
     def __recv_transaction(self, transaction):
-        if not self.chain.add_unconfirmed_transaction(transaction):
+        self.cv.acquire()
+        valid = self.chain.add_unconfirmed_transaction(transaction)
+        if not valid:
             util.printts("Node %d: received invalid transaction from peer %d" %
                          (self.ident, transaction["sender"]))
-            return
+        self.cv.notify()
+        self.cv.release()
 
-        # we need to perform the mining in a separate thread
-        # because it will wait for other nodes to finish mining
-        # as well. the thread that called us to start the mining
-        # cannot block while waiting for the queue to be filled.
-        thread = Thread(target=self.__mine, args=(), daemon=False)
-        thread.start()
+    def __block_waiter(self):
+        while True:
+            self.cv.acquire()
+
+            if not self.chain.unconfirmed:
+                self.cv.wait()
+
+            self.cv.release()
+
+            if not self.connected:
+                break
+
+            thread = Thread(target=self.__mine, args=(), daemon=False)
+            thread.start()
+
+            # we're going to take control of the condition variable
+            # so that any incoming transactions need to wait until
+            # after we finish mining the current block
+            self.cv.acquire()
+            thread.join()
+            self.cv.release()
 
     def __mine(self):
         util.printts("Node %d: starting mining thread" % self.ident)
