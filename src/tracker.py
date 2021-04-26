@@ -164,7 +164,7 @@ class Tracker:
         while True:
             try:
                 msg = message.recv(conn, enc_recv)
-            except ValueError:
+            except Exception:
                 util.printts("Tracker: connection with node %d was broken" %
                              ident)
                 self.__remove_node(conn, ident)

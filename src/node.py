@@ -467,10 +467,17 @@ class Node:
 
     def __recv_transaction(self, transaction):
         self.cv.acquire()
+
         valid = self.chain.add_unconfirmed_transaction(transaction)
         if not valid:
             util.printts("Node %d: received invalid transaction from peer %d" %
                          (self.ident, transaction["sender"]))
+
+        # if the miner is running then it will have to start over
+        # since we just modified the list of unconfirmed transactions
+        if self.block_queue and self.block_queue.empty():
+            self.block_queue.put("STOP")
+
         self.cv.notify()
         self.cv.release()
 
@@ -492,9 +499,7 @@ class Node:
             # we're going to take control of the condition variable
             # so that any incoming transactions need to wait until
             # after we finish mining the current block
-            self.cv.acquire()
             thread.join()
-            self.cv.release()
 
     def __mine(self):
         util.printts("Node %d: starting mining thread" % self.ident)
@@ -506,9 +511,7 @@ class Node:
 
         val = self.block_queue.get()
         if val == "STOP":
-            util.printts("Node %d: block was mined by another node" %
-                         self.ident)
-
+            util.printts("Node %d: miner stopped" % self.ident)
             worker.stop()
             worker.thread.join()
         else:
