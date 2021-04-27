@@ -21,7 +21,7 @@ The implementation of such a cryptocurrency will include the following component
 
 # Instructions
 
-First, we start the tracker like so, specifying a port number to listen on for new connectikns:
+First, we start the tracker like so, specifying a port number to listen on for new connections:
 
 ```
 ./tracker_driver.py <port>
