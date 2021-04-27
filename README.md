@@ -13,3 +13,28 @@ The implementation of such a cryptocurrency will include the following component
 - **Blockchain transaction capability.** Transactions that occur among nodes in this network will use blockchain technology. When a transaction occurs between two nodes in the network, this transaction will be broadcast to all nodes in the network. Upon being received by a node in the network, this transaction will then be added to a list of “unconfirmed transactions”. To determine when these unconfirmed transactions should be assembled into a block and added to the blockchain, a proof-of-work routine will be executed by each node. The node that completes the routine first will send a broadcast message suggesting that its block be added to the blockchain.
 
 - **Globally distributed ledger.** Each node will store its own ledger with a list of all transactions that occur for each node within the network. As a security measure, transactions will include ledger information about the node from which they originated, to prove that the sending node has enough of a balance to make the transaction. This information will be verified by each node on the P2P network before the transaction is confirmed. 
+
+# Requirements
+
+- Python 3 (tested successfully with 3.9.4)
+- PyNaCl
+
+# Instructions
+
+First, we start the tracker like so, specifying a port number to listen on for new connectikns:
+
+```
+./tracker_driver.py <port>
+```
+
+This will bring up a command prompt where the state of the tracker can be queried.
+Next, we can start an arbitrary number of nodes like so:
+
+```
+./node_driver.py <tracker_port> <listen_port>
+```
+
+Here, `tracker_port` is the port mentioned previously, while `listen_port` is the port that this node will be listening on for new connections.
+Currently, it is assumed that the tracker is running on `localhost` (mainly for testing purposes).
+
+Again, a command prompt will appear, allowing the node to make transactions and query its internal state.
