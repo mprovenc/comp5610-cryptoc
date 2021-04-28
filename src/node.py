@@ -453,6 +453,12 @@ class Node:
         if self.ident == receiver:
             return
 
+        # don't allow sending to a peer that doesn't exist
+        if receiver not in self.peers:
+            util.printts("Node %d: peer %d doesn't exist" %
+                         (self.ident, receiver))
+            return
+
         # serialize the transaction before broadcast
         transaction = {'sender': self.ident,
                        'receiver': receiver,
